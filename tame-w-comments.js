@@ -877,7 +877,84 @@ TAME.WebServiceClient = function(service) {
         return output;
     }
     
-    
+    /**
+     * Convert B64-substrings to data.
+     * 
+     * @param {String} dataString
+     * @param {String} type
+     * @param {String, Number} format
+     * @return {Mixed} data
+     * 
+     */
+    function subStringToData(dataString, type, format) {
+        var data;
+        
+        switch (type) {
+            case 'BOOL':
+                //Does this work?????
+                data = (dataString.charCodeAt(0) != '0');
+                break;
+            case 'BYTE':
+            case 'USINT':
+                data = parsePlcUsint(dataString);
+                break;
+            case 'SINT':
+                data = parsePlcSint(dataString);
+                break;
+            case 'WORD':
+            case 'UINT':
+                data = parsePlcUint(dataString);
+                break;
+            case 'INT':
+                data = parsePlcInt(dataString);
+                break;
+            case 'INT1DP':
+                data = ((parsePlcInt(dataString)) / 10).toFixed(1);
+                break;
+            case 'DWORD':
+            case 'UDINT':
+                data = parsePlcUdint(dataString);
+                break;
+            case 'DINT':
+                data = parsePlcDint(dataString);
+                break;
+            case 'REAL':
+                data = parsePlcReal(dataString);
+                if (typeof format == 'string') {
+                    data = data.toFixed(parseInt(format, 10));
+                }
+                break;
+            case 'LREAL':
+                data = parsePlcLreal(dataString);
+                if (typeof format == 'string') {
+                    data = data.toFixed(parseInt(format, 10));
+                }
+                break;
+            case 'STRING':
+                data = parsePlcString(dataString);
+                break;
+            case 'TOD':
+                data = parsePlcTod(dataString, format);
+                break;
+            case 'TIME':
+                data = parsePlcTime(dataString, format);
+                break;
+            case 'DT':
+            case 'DATE':
+                data = parsePlcDate(dataString, format);
+                break;
+            case 'EndStruct':
+                //Just do nothing.
+                break;
+            default:
+                try {
+                    console.log('TAME library error: Unknown data type at parsing read request: ' + type);
+                } catch (e) {}
+                break;
+        }
+        
+        return data;
+    } 
 
     /**
      * Decode the response string of a read request and store data.
@@ -885,12 +962,13 @@ TAME.WebServiceClient = function(service) {
      * @param {Object} adsReq
      * @param {String} response
      */
-    function decodeReadReq(adsReq, response) {
+    function parseReadRequest(adsReq) {
         
-        var itemList = adsReq.reqDescr.items,
+        var response = adsReq.xmlHttpReq.responseXML.documentElement,
+        itemList = adsReq.reqDescr.items,
         type = [],
         strAddr = 0,
-        data, d, len, plen, strlen, mod, format, idx, listlen;
+        dataString, dataSubString, data, len, plen, mod, format, idx, listlen;
         
     
         try {
@@ -899,7 +977,7 @@ TAME.WebServiceClient = function(service) {
                 response.normalize();
             }
             
-            data = decodeBase64(response.getElementsByTagName('ppData')[0].firstChild.data);
+            dataString = decodeBase64(response.getElementsByTagName('ppData')[0].firstChild.data);
             
             //Run through the elements in the item list.
             for (idx = 0, listlen = itemList.length; idx < listlen; idx++) {
@@ -918,6 +996,20 @@ TAME.WebServiceClient = function(service) {
                 //Get the length of the data types.
                 len = plcTypeLen[type[0]];
                 
+                switch (format) {
+                    case 'STRING':
+                        if (typeof format == 'string') {
+                            strlen = parseInt(format, 10);
+                        }
+                        len = (isValidStringLen(strlen) ? strlen : len) + 1;             
+                        break;
+                    case 'EndStruct':
+                        //Set the length of the padding bytes at the end of the structure
+                        //"EndStruct" is only used with "readArrayOfStructures/writeArrayOfStructures".
+                        len = itemList[idx].val;
+                        break;
+                }
+                
                 //Set the length for calculating padding bytes
                 plen = len < 4 ? len : 4;
                 
@@ -934,78 +1026,15 @@ TAME.WebServiceClient = function(service) {
                 }
                 //console.log(strAddr + '; ' + type[0]);
                 
-                switch (type[0]) {
-                    case 'BOOL':
-                        d = (data.charCodeAt(strAddr) != '0');
-                        break;
-                    case 'BYTE':
-                    case 'USINT':
-                        d = parsePlcUsint(data.substr(strAddr, len));
-                        break;
-                    case 'SINT':
-                        d = parsePlcSint(data.substr(strAddr, len));
-                        break;
-                    case 'WORD':
-                    case 'UINT':
-                        d = parsePlcUint(data.substr(strAddr, len));
-                        break;
-                    case 'INT':
-                        d = parsePlcInt(data.substr(strAddr, len));
-                        break;
-                    case 'INT1DP':
-                        d = ((parsePlcInt(data.substr(strAddr, len))) / 10).toFixed(1);
-                        break;
-                    case 'DWORD':
-                    case 'UDINT':
-                        d = parsePlcUdint(data.substr(strAddr, len));
-                        break;
-                    case 'DINT':
-                        d = parsePlcDint(data.substr(strAddr, len));
-                        break;
-                    case 'REAL':
-                        d = parsePlcReal(data.substr(strAddr, len));
-                        if (typeof format == 'string') {
-                            d = d.toFixed(parseInt(format, 10));
-                        }
-                        break;
-                    case 'LREAL':
-                        d = parsePlcLreal(data.substr(strAddr, len));
-                        if (typeof format == 'string') {
-                            d = d.toFixed(parseInt(format, 10));
-                        }
-                        break;
-                    case 'STRING':
-                        if (typeof format == 'string') {
-                            strlen = parseInt(format, 10);
-                        }
-                        len = (isValidStringLen(strlen) ? strlen : len) + 1;
-                        d = parsePlcString(data.substr(strAddr, len));
-                        break;
-                    case 'TOD':
-                        d = parsePlcTod(data.substr(strAddr, len), format);
-                        break;
-                    case 'TIME':
-                        d = parsePlcTime(data.substr(strAddr, len), format);
-                        break;
-                    case 'DT':
-                    case 'DATE':
-                        d = parsePlcDate(data.substr(strAddr, len), format);
-                        break;
-                    case 'EndStruct':
-                        //Set the length of the padding bytes at the end of the structure
-                        //"EndStruct" is only used with "readArrayOfStructures/writeArrayOfStructures".
-                        len = itemList[idx].val;
-                        break;
-                    default:
-                        try {
-                            console.log('TAME library error: Unknown data type at parsing read request: ' + itemList[idx].type);
-                        } catch (e) {}
-                        break;
-                }
+                //Slice the string and decode the data
+                dataSubString = dataString.substr(strAddr, len);
+                data = subStringToData(dataSubString, type[0], format);
+                
                 //Parse the name of the variable and write the data
                 if (type[0] !== 'EndStruct') {
-                    parseVarName(itemList[idx].jvar, d, adsReq.reqDescr.dataObj, itemList[idx].prefix, itemList[idx].suffix);
+                    parseVarName(itemList[idx].jvar, data, adsReq.reqDescr.dataObj, itemList[idx].prefix, itemList[idx].suffix);
                 }
+                
                 //Set the next address
                 if (adsReq.reqDescr.seq === true) {
                     strAddr += len;
@@ -2400,9 +2429,7 @@ TAME.WebServiceClient = function(service) {
     this.parseResponse = function(adsReq){
     
         var response = adsReq.xmlHttpReq.responseXML.documentElement,
-            type = [],
-            strAddr = 0,
-            errorCode, errorText, data, d, len, plen, strlen, mod, format, idx, listlen;
+        errorCode, errorText;
         
         //Acknowledge the receive of a request with index 'id'.
         if (typeof adsReq.reqDescr.id == 'number') {
@@ -2429,7 +2456,7 @@ TAME.WebServiceClient = function(service) {
         //Decode data if it's a read request.
         if (adsReq.method === 'Read') {
             
-            decodeReadReq(adsReq, response);
+            parseReadRequest(adsReq);
             
             //Call the On-Complete-Script.
             if (typeof adsReq.reqDescr.oc == 'function') {
