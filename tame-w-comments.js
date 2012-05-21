@@ -389,6 +389,209 @@ TAME.WebServiceClient = function(service) {
         return out;
     }
     
+    /**
+     * Function for converting the data values to a byte array.
+     * 
+     * @param {Object} item     The item from the item list of a request descriptor.
+     * @param {Array} type      Contains the data type (type[0]) and the formatting string if used.
+     * @param {Number} len      Data length.
+     * @return {Array} bytes    An array containing the data as byte values.
+     */
+    function dataToByteArray(item, type, len) {
+        
+        var bytes, val, strlen, sl, i;
+        
+        //If no value is passed, set value to zero and log an error message.
+        if (item.val === undefined) {
+            switch (type[0]) {
+                case 'STRING':
+                    item.val = '';
+                    break;
+                case 'DATE':
+                case 'DT':
+                case 'TOD':
+                    item.val = new Date;
+                    break;
+                default:
+                    item.val = 0;
+                    break;       
+            } 
+            try {
+                console.log('TAME library warning: Value of a variable in write request is not defined!');
+                console.log(item);
+            } catch(e) {}
+        }
+        
+        //Depending on the data type, convert the values to a byte array.
+        switch (type[0] ) {
+            case 'BOOL':
+                if (item.val) {
+                    bytes[0] = 1;
+                } else {
+                    bytes[0] = 0;
+                }
+                break;
+            case 'BYTE':
+            case 'USINT':
+                val = checkValue(item, type[0], 0, 255);
+                bytes = numToByteArr(val, len);
+                break;
+            case 'SINT':
+                val = checkValue(item, type[0], -128, 127);
+                if (val < 0) {
+                    val = val + 256;
+                }
+                bytes = numToByteArr(val, len);
+                break;
+            case 'WORD':
+            case 'UINT':                
+                val = checkValue(item, type[0], 0, 65535);
+                bytes = numToByteArr(val, len);
+                break;
+            case 'INT':                
+                val = checkValue(item, type[0], -32768, 32767);
+                if (val < 0) {
+                    val = val + 65536;
+                }
+                bytes = numToByteArr(val, len);
+                break;
+            case 'INT1DP':
+                item.val = Math.round(item.val * 10);
+                val = checkValue(item, type[0], -32768, 32767);
+                if (val < 0) {
+                    val = val + 65536;
+                }
+                bytes = numToByteArr(val, len);
+                break;
+            case 'DWORD':
+            case 'UDINT':   
+                val = checkValue(item, type[0], 0, 4294967295);
+                bytes = numToByteArr(val, len);
+                break;
+            case 'DINT':                
+                val = checkValue(item, type[0], -2147483648, 2147483647);
+                if (val < 0) {
+                    val = val + 4294967296;
+                }
+                bytes = numToByteArr(val, len);
+                break;
+            case 'REAL':
+                val = checkValue(item, type[0]);
+                val = floatToReal(val);
+                bytes = numToByteArr(val, len);
+                break;
+            case 'LREAL':
+                val = checkValue(item, type[0]);
+                val = floatToLreal(val);
+                bytes = numToByteArr(val.part2, len);
+                bytes = bytes.concat(numToByteArr(val.part1, len));
+                break;
+            case 'DATE':
+                if (typeof item.val == 'object') {
+                    //Delete the time portion.
+                    item.val.setHours(0);
+                    item.val.setMinutes(0);
+                    item.val.setSeconds(0);
+                    //Convert the date object in seconds since 1.1.1970 and
+                    //set the time zone to UTC.
+                    val = item.val.getTime() / 1000 - item.val.getTimezoneOffset() * 60;
+                } else {
+                    try {
+                        console.log('TAME library error: Date is not an object!)');
+                        console.log(item.val);
+                    } catch(e) {}
+                }
+                bytes = numToByteArr(val, len);
+                break;
+            case 'DT':
+                if (typeof item.val == 'object') {
+                    //Convert the date object in seconds since 1.1.1970 and
+                    //set the time zone to UTC.
+                    val = item.val.getTime() / 1000 - item.val.getTimezoneOffset() * 60;
+                } else {
+                    try {
+                        console.log('TAME library error: Date is not an object!)');
+                        console.log(item);
+                    } catch(e) {}
+                }
+                bytes = numToByteArr(val, len);
+                break;
+            case 'TOD':
+                if (typeof item.val == 'object') {
+                    //Delete the date portion.
+                    item.val.setYear(1970);
+                    item.val.setMonth(0);
+                    item.val.setDate(1);
+                    //Convert the date object in seconds since 1.1.1970 and
+                    //set the time zone to UTC.
+                    val = item.val.getTime() - item.val.getTimezoneOffset() * 60000;
+                } else {
+                    try {
+                        console.log('TAME library error: Date is not an object!)');
+                        console.log(item);
+                    } catch(e) {}
+                }
+                bytes = numToByteArr(val, len);
+                break;
+            case 'STRING':
+                //If no length is given, set it to 80 characters (TwinCAT default).                 
+                strlen = (type[1] === undefined) ? plcTypeLen.STRING : parseInt(type[1],10);
+
+                if (isValidStringLen(strlen)) {
+                    //If the given string length is valid and shorter then the string
+                    //then use the given value to avoid an overflow, otherwise use
+                    //the real string length.
+                    sl = strlen < item.val.length ? strlen : item.val.length;
+                    for (i = 0; i < sl; i++) {
+                        bytes[i] = item.val.charCodeAt(i);
+                    }
+                    //Fill the string up to the given length, if necessary.
+                    for (i; i < strlen; i++) {
+                        bytes[i] = 0;
+                    }
+                    //Termination, the real string length in the PLC is
+                    //the defined length + 1.
+                    bytes[i] = 0;
+                }
+                break;
+            case 'TIME':
+                val = item.val * 1;
+                val = toMillisec(val, type[1]);
+                if (val < 0) {
+                    val = 0;
+                    try {
+                        console.log('TAME library warning: Lower limit for TIME variable exceeded!)');
+                        console.log(item.val + type[1]);
+                        console.log(item);
+                    } catch(e) {}
+                } else if (val > 4294967295) {
+                    val = 4294967295;
+                    try {
+                        console.log('TAME library warning: Upper limit for TIME variable exceeded!)');
+                        console.log(item.val + type[1]);
+                        console.log(item);
+                    } catch(e) {}
+                }
+                bytes = numToByteArr(val, len);
+                break;
+            case 'EndStruct':
+                //Calculate the padding bytes at the end of the structure
+                //"EndStruct" is only used with "readArrayOfStructures/writeArrayOfStructures".
+                for (i = 1; i <= item.val; i++) {
+                    pData.push(0);
+                }
+                break;
+            default:
+                try {
+                    console.log('TAME library error: Unknown data type in write request : ' + item.type);
+                    console.log(item);
+                } catch (e) {}
+                break;
+        }
+        
+        return bytes;
+        
+    } 
 
     //======================================================================================
     //                                  Decoder Functions
@@ -957,12 +1160,12 @@ TAME.WebServiceClient = function(service) {
     } 
 
     /**
-     * Decode the response string of a read request and store data.
+     * Decode the response string of a read request and store the data.
      * 
      * @param {Object} adsReq
      * @param {String} response
      */
-    function parseReadRequest(adsReq) {
+    function parseReadReq(adsReq) {
         
         var response = adsReq.xmlHttpReq.responseXML.documentElement,
         itemList = adsReq.reqDescr.items,
@@ -1172,6 +1375,11 @@ TAME.WebServiceClient = function(service) {
                 //Byte addresses.
                 obj.indexGroup = fields[obj.addr.substr(1, 1)];
                 obj.indexOffset = parseInt(obj.addr.substr(3), 10);
+                //Address offset is used if only one item of an array
+                //should be sent.
+                if (typeof obj.addrOffset == 'Number') {
+                    obj.indexOffset += obj.addrOffset;
+                }
             }
             if (isNaN(obj.indexGroup)) {
                 try {
@@ -1183,7 +1391,7 @@ TAME.WebServiceClient = function(service) {
             }   
             if (isNaN(obj.indexOffset)) {
                 try {
-                    console.log('TAME library error: IndexGroup is not a number, check address definition.');
+                    console.log('TAME library error: IndexOffset is not a number, check address definition.');
                     console.log('Address: ' + obj.addr);
                     console.log('IndexGroup: ' + obj.indexOffset);
                     console.log(obj);
@@ -1199,70 +1407,6 @@ TAME.WebServiceClient = function(service) {
         }            
     }
     
-	
-    /**
-     * Process the given address of the descriptor.
-     * 
-     * @param {Object} descr    A request descriptor.
-     */
-    function processReqAddr(descr) {
-        
-        var addr = '', mxaddr = [];
-        
-        if (typeof descr.fld != 'string') {
-            //New addressing style with V2.0
-            if (typeof descr.addr == 'string' && descr.addr.charAt(0) == '%') {
-                if (descr.addr.charAt(2) == 'X') {
-                    descr.fld = descr.addr.substr(1, 2);
-                    addr = descr.addr.substr(3);
-                    mxaddr = addr.split('.');
-                    descr.addr = mxaddr[0] * 8 + mxaddr[1] * 1;
-                } else {
-                    descr.fld = descr.addr.substr(1, 1);
-                    descr.addr = parseInt(descr.addr.substr(3), 10);
-                }
-            } else {
-                try {
-                    console.log('TAME library error: No field defined (M,MX,I,IX,Q,QX) and address contains no field information (%MB,%MX,%IB,%IX%,%QB,%QX).');
-                    console.log('fld:' + descr.fld);
-                    console.log('addr:' + descr.addr);
-                } catch (e) {}
-                return;
-            }
-        } else if (descr.fld.charAt(0) === 'M' || descr.fld.charAt(0) === 'I' || descr.fld.charAt(0) === 'Q') {
-            //Old school adressing.
-            if (typeof descr.addr == 'string') {
-                //Konvert to number if accidentally defined as string.
-                descr.addr = parseFloat(descr.addr);
-            } else if (typeof descr.addr !== 'number') {
-                try {
-                    console.log('TAME library error: No PLC variable address defined.');
-                    console.log('addr:' + descr.addr);
-                } catch (e) {}
-                return;
-            }
-            if (descr.fld.length == 2 && descr.fld.charAt(1) == 'X') {
-                if (descr.addr === 0) {
-                    descr.addr = '0.0'; //Workaround cause 0.0 is passed as 0.
-                }
-                mxaddr = descr.addr.toString().split('.');
-                descr.addr = mxaddr[0] * 8 + mxaddr[1] * 1;
-            }
-        } else {
-            try {
-                console.log('TAME library error: Field not defined (should be M,MX,I,IX,Q,QX) and address contains no correct field definition.');
-                console.log('fld:' + descr.fld);
-                console.log('addr:' + descr.addr);
-            } catch (e) {}
-        }
-                
-        if (isNaN(descr.addr)) {
-             try {
-                console.log('TAME library error: Wrong address definition.');
-                console.log('addr:' + descr.addr);
-            } catch (e) {}
-        }
-    }
     
     /**
      * Create the objects for SOAP and XMLHttpRequest and send the request.
@@ -1312,7 +1456,9 @@ TAME.WebServiceClient = function(service) {
             
             //Generate the SOAP request.
             soapReq = '<?xml version=\'1.0\' encoding=\'utf-8\'?>';
-            soapReq += '<soap:Envelope xmlns:xsi=\'http://www.w3.org/2001/XMLSchema-instance\' xmlns:xsd=\'http://www.w3.org/2001/XMLSchema\' xmlns:soap=\'http://schemas.xmlsoap.org/soap/envelope/\'>';
+            soapReq += '<soap:Envelope xmlns:xsi=\'http://www.w3.org/2001/XMLSchema-instance\' ';
+            soapReq += 'xmlns:xsd=\'http://www.w3.org/2001/XMLSchema\' ';
+            soapReq += 'xmlns:soap=\'http://schemas.xmlsoap.org/soap/envelope/\'>';
             soapReq += '<soap:Body><q1:';
             soapReq += this.method;
             soapReq += ' xmlns:q1=\'http://beckhoff.org/message/\'><netId xsi:type=\'xsd:string\'>';
@@ -1529,7 +1675,6 @@ TAME.WebServiceClient = function(service) {
         
         //Create the Request Descriptor.
         reqDescr = {
-            fld: args.fld,
             addr: args.addr,
             id: args.id,
             oc: args.oc,
@@ -1567,6 +1712,7 @@ TAME.WebServiceClient = function(service) {
         var reqDescr = {},
             dataObj = {},
             arrayLength,
+            addrOffset,
             cnt = 0,
             i = 0,
             j = 0,
@@ -1602,9 +1748,6 @@ TAME.WebServiceClient = function(service) {
         if (typeof args.arrlen == 'number') {
             arrayLength = args.arrlen;
         }
-        
-        //Convert address if necessary
-        processReqAddr(args);
         
         //Check if only one item should be written.
         if (typeof args.item == 'number' && !isNaN(args.item) && method === 'Write') {
@@ -1682,16 +1825,16 @@ TAME.WebServiceClient = function(service) {
             }
                 
             
-            //Write only one item if desired.
+            //Set the address offset and the length to 1 
+            //if only one item should be sent.
             if (wrtOneOnly) {
-                //Set the new start addresses and length
-                args.addr = args.addr + structByteLen * args.item;
+                addrOffset = structByteLen * args.item;
                 arrayLength = 1;
             }
             
             reqDescr = {
-                fld: args.fld,
                 addr: args.addr,
+                addrOffset: addrOffset,
                 id: args.id,
                 oc: args.oc,
                 ocd: args.ocd,
@@ -1811,15 +1954,16 @@ TAME.WebServiceClient = function(service) {
                     break;
             } 
             
-            //Set address and array length if only one item should be written.
+            //Set the address offset and the length to 1 
+            //if only one item should be sent.
             if (wrtOneOnly) {
-                args.addr += args.item * len;
+                addrOffset = args.item * len;
                 arrayLength = 1;
             }
             
             reqDescr = {
-                fld: args.fld,
                 addr: args.addr,
+                addrOffset: addrOffset,
                 id: args.id,
                 oc: args.oc,
                 ocd: args.ocd,
@@ -1898,7 +2042,6 @@ TAME.WebServiceClient = function(service) {
         }
         
         reqDescr = {
-            fld: args.fld,
             addr: args.addr,
             id: args.id,
             oc: args.oc,
@@ -1969,6 +2112,8 @@ TAME.WebServiceClient = function(service) {
     }
     
     
+
+    
     //======================================================================================
     //                                Public Methods
     //======================================================================================
@@ -1989,9 +2134,10 @@ TAME.WebServiceClient = function(service) {
             pData = [],
             type = [],
             bytes= [],
-            listlen, len, strlen, val, pcount, mod, item, sl, i, idx;
+            listlen, len, val, pcount, mod, item, i, idx;
         
-        //Parse the request address and create IndexGroup/IndexOffset.
+        //Parse the request address, create IndexGroup/IndexOffset and append them
+        //to the request descriptor.
         parseAddr(reqDescr);
         
         //Debug: Log the Request Descriptor to the console.
@@ -2029,193 +2175,9 @@ TAME.WebServiceClient = function(service) {
                 }
             }
             
-            //If no value is passed, set value to zero and log an error message.
-            if (item.val === undefined) {
-                switch (type[0]) {
-                    case 'STRING':
-                        item.val = '';
-                        break;
-                    case 'DATE':
-                    case 'DT':
-                    case 'TOD':
-                        item.val = new Date;
-                        break;
-                    default:
-                        item.val = 0;
-                        break;       
-                } 
-                try {
-                    console.log('TAME library warning: Value of a variable in write request is not defined!');
-                    console.log(item);
-                } catch(e) {}
-            }
-            
-            //Depending on the data type, convert the values to a byte array.
-            switch (type[0] ) {
-                case 'BOOL':
-                    if (item.val) {
-                        bytes[0] = 1;
-                    } else {
-                        bytes[0] = 0;
-                    }
-                    break;
-                case 'BYTE':
-                case 'USINT':
-                    val = checkValue(item, type[0], 0, 255);
-                    bytes = numToByteArr(val, len);
-                    break;
-                case 'SINT':
-                    val = checkValue(item, type[0], -128, 127);
-                    if (val < 0) {
-                        val = val + 256;
-                    }
-                    bytes = numToByteArr(val, len);
-                    break;
-                case 'WORD':
-                case 'UINT':                
-                    val = checkValue(item, type[0], 0, 65535);
-                    bytes = numToByteArr(val, len);
-                    break;
-                case 'INT':                
-                    val = checkValue(item, type[0], -32768, 32767);
-                    if (val < 0) {
-                        val = val + 65536;
-                    }
-                    bytes = numToByteArr(val, len);
-                    break;
-                case 'INT1DP':
-                    item.val = Math.round(item.val * 10);
-                    val = checkValue(item, type[0], -32768, 32767);
-                    if (val < 0) {
-                        val = val + 65536;
-                    }
-                    bytes = numToByteArr(val, len);
-                    break;
-                case 'DWORD':
-                case 'UDINT':   
-                    val = checkValue(item, type[0], 0, 4294967295);
-                    bytes = numToByteArr(val, len);
-                    break;
-                case 'DINT':                
-                    val = checkValue(item, type[0], -2147483648, 2147483647);
-                    if (val < 0) {
-                        val = val + 4294967296;
-                    }
-                    bytes = numToByteArr(val, len);
-                    break;
-                case 'REAL':
-                    val = checkValue(item, type[0]);
-                    val = floatToReal(val);
-                    bytes = numToByteArr(val, len);
-                    break;
-                case 'LREAL':
-                    val = checkValue(item, type[0]);
-                    val = floatToLreal(val);
-                    bytes = numToByteArr(val.part2, len);
-                    bytes = bytes.concat(numToByteArr(val.part1, len));
-                    break;
-                case 'DATE':
-                    if (typeof item.val == 'object') {
-                        //Delete the time portion.
-                        item.val.setHours(0);
-                        item.val.setMinutes(0);
-                        item.val.setSeconds(0);
-                        //Convert the date object in seconds since 1.1.1970 and
-                        //set the time zone to UTC.
-                        val = item.val.getTime() / 1000 - item.val.getTimezoneOffset() * 60;
-                    } else {
-                        try {
-                            console.log('TAME library error: Date is not an object!)');
-                            console.log(item.val);
-                        } catch(e) {}
-                    }
-                    bytes = numToByteArr(val, len);
-                    break;
-                case 'DT':
-                    if (typeof item.val == 'object') {
-                        //Convert the date object in seconds since 1.1.1970 and
-                        //set the time zone to UTC.
-                        val = item.val.getTime() / 1000 - item.val.getTimezoneOffset() * 60;
-                    } else {
-                        try {
-                            console.log('TAME library error: Date is not an object!)');
-                            console.log(item);
-                        } catch(e) {}
-                    }
-                    bytes = numToByteArr(val, len);
-                    break;
-                case 'TOD':
-                    if (typeof item.val == 'object') {
-                        //Delete the date portion.
-                        item.val.setYear(1970);
-                        item.val.setMonth(0);
-                        item.val.setDate(1);
-                        //Convert the date object in seconds since 1.1.1970 and
-                        //set the time zone to UTC.
-                        val = item.val.getTime() - item.val.getTimezoneOffset() * 60000;
-                    } else {
-                        try {
-                            console.log('TAME library error: Date is not an object!)');
-                            console.log(item);
-                        } catch(e) {}
-                    }
-                    bytes = numToByteArr(val, len);
-                    break;
-                case 'STRING':
-                    //If no length is given, set it to 80 characters (TwinCAT default).                 
-                    strlen = (type[1] === undefined) ? plcTypeLen.STRING : parseInt(type[1],10);
-    
-                    if (isValidStringLen(strlen)) {
-                        //If the given string length is valid and shorter then the string
-                        //then use the given value to avoid an overflow, otherwise use
-                        //the real string length.
-                        sl = strlen < item.val.length ? strlen : item.val.length;
-                        for (i = 0; i < sl; i++) {
-                            bytes[i] = item.val.charCodeAt(i);
-                        }
-                        //Fill the string up to the given length, if necessary.
-                        for (i; i < strlen; i++) {
-                            bytes[i] = 0;
-                        }
-                        //Termination, the real string length in the PLC is
-                        //the defined length + 1.
-                        bytes[i] = 0;
-                    }
-                    break;
-                case 'TIME':
-                    val = item.val * 1;
-                    val = toMillisec(val, type[1]);
-                    if (val < 0) {
-                        val = 0;
-                        try {
-                            console.log('TAME library warning: Lower limit for TIME variable exceeded!)');
-                            console.log(item.val + type[1]);
-                            console.log(item);
-                        } catch(e) {}
-                    } else if (val > 4294967295) {
-                        val = 4294967295;
-                        try {
-                            console.log('TAME library warning: Upper limit for TIME variable exceeded!)');
-                            console.log(item.val + type[1]);
-                            console.log(item);
-                        } catch(e) {}
-                    }
-                    bytes = numToByteArr(val, len);
-                    break;
-                case 'EndStruct':
-                    //Calculate the padding bytes at the end of the structure
-                    //"EndStruct" is only used with "readArrayOfStructures/writeArrayOfStructures".
-                    for (i = 1; i <= item.val; i++) {
-                        pData.push(0);
-                    }
-                    break;
-                default:
-                    try {
-                        console.log('TAME library error: Unknown data type in write request : ' + item.type);
-                        console.log(item);
-                    } catch (e) {}
-                    break;
-            }
+            //Convert the data to a byte array.
+            bytes = dataToByteArray(item, type, len);
+
             //Summarise the data.     
             pData = pData.concat(bytes);
         }
@@ -2233,6 +2195,7 @@ TAME.WebServiceClient = function(service) {
         };
         asyncRequest(adsReq).send();  
     };
+
 
     /**
      * This is the function for creating a read request. If no value for the
@@ -2456,7 +2419,7 @@ TAME.WebServiceClient = function(service) {
         //Decode data if it's a read request.
         if (adsReq.method === 'Read') {
             
-            parseReadRequest(adsReq);
+            parseReadReq(adsReq);
             
             //Call the On-Complete-Script.
             if (typeof adsReq.reqDescr.oc == 'function') {
