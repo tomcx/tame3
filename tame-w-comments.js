@@ -410,7 +410,7 @@ TAME.WebServiceClient = function(service) {
                 case 'DATE':
                 case 'DT':
                 case 'TOD':
-                    item.val = new Date;
+                    item.val = new Date();
                     break;
                 default:
                     item.val = 0;
@@ -575,11 +575,7 @@ TAME.WebServiceClient = function(service) {
                 bytes = numToByteArr(val, len);
                 break;
             case 'EndStruct':
-                //Calculate the padding bytes at the end of the structure
-                //"EndStruct" is only used with "readArrayOfStructures/writeArrayOfStructures".
-                for (i = 1; i <= item.val; i++) {
-                    pData.push(0);
-                }
+                //Do nothing.
                 break;
             default:
                 try {
@@ -1171,7 +1167,7 @@ TAME.WebServiceClient = function(service) {
         itemList = adsReq.reqDescr.items,
         type = [],
         strAddr = 0,
-        dataString, dataSubString, data, len, plen, mod, format, idx, listlen;
+        dataString, dataSubString, data, strlen, len, plen, mod, format, idx, listlen;
         
     
         try {
@@ -1217,7 +1213,7 @@ TAME.WebServiceClient = function(service) {
                 plen = len < 4 ? len : 4;
                 
                 //Calculate the place of the element in the data string
-                if (!adsReq.reqDescr.seq === true) {
+                if (adsReq.reqDescr.seq !== true) {
                     //If variable addresses are used.
                     strAddr = itemList[idx].addr - adsReq.reqDescr.addr;
                 } else if (adsReq.reqDescr.dataAlign4 === true && plen > 1 && type[0] != 'STRING' && strAddr > 0) {
@@ -1268,7 +1264,7 @@ TAME.WebServiceClient = function(service) {
      *                          Used with createArrayDescriptor and createStructDescriptor 
      *                          for better performance.
      */
-    function parseVarName(name, data, obj){
+    function parseVarName(name, data, obj, prefix, suffix) {
         
         var  arr = [],
              last = 0,
@@ -1471,7 +1467,7 @@ TAME.WebServiceClient = function(service) {
             soapReq += this.reqDescr.indexOffset;
             soapReq += '</indexOffset>';
     
-            if (method === 'Read' && this.reqDescr.readLength > 0) {
+            if (this.method === 'Read' && this.reqDescr.readLength > 0) {
                 soapReq += '<cbRdLen xsi:type=\'xsd:int\'>';
                 soapReq += this.reqDescr.readLength;
                 soapReq += '</cbRdLen>';
@@ -2175,11 +2171,18 @@ TAME.WebServiceClient = function(service) {
                 }
             }
             
-            //Convert the data to a byte array.
-            bytes = dataToByteArray(item, type, len);
-
-            //Summarise the data.     
-            pData = pData.concat(bytes);
+            if (type[0] === 'EndStruct') {
+                //Calculate the padding bytes at the end of the structure
+                //"EndStruct" is only used with "readArrayOfStructures/writeArrayOfStructures".
+                for (i = 1; i <= item.val; i++) {
+                    pData.push(0);
+                }
+            } else {
+                //Convert the data to a byte array.
+                bytes = dataToByteArray(item, type, len);
+                //Summarise the data.     
+                pData = pData.concat(bytes);
+            }
         }
 
         //Convert the data to Base64.
@@ -2291,7 +2294,7 @@ TAME.WebServiceClient = function(service) {
         };
         asyncRequest(adsReq).send();
             
-    }
+    };
 
     /**
      * The shortcuts for reading and writing data.
