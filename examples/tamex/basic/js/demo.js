@@ -1,5 +1,5 @@
 /**
- *  @author T.Schmidt, 13.10.2011
+ *  @author T.Schmidt, 03.05.2012
  *  Very basic example for using TAME.
  */
 
@@ -53,17 +53,17 @@ window.onload = function() {
         Plc.readTime({addr: '%MB28', jvar: 'field9.data', format:'#m'});
     };
     var pollWert10 = function() {
-        Plc.readTod({addr: '%MB50', jvar: 'field10.data', format:'#hh#:#mm#:#ss#:#msmsms'});
+        Plc.readTod({addr: '%MB52', jvar: 'field10.data', format:'#hh#:#mm#:#ss#:#msmsms'});
     };
     var pollWert11 = function() {
-        Plc.readDt({addr: '%MB54', jvar: 'field11.data', format:'#DD#.#MM#.#YYYY#, #hh#:#mm#:#ss'});
-        Plc.readDt({addr: '%MB54', jvar: 'field20.data'});
+        Plc.readDt({addr: '%MB56', jvar: 'field11.data', format:'#DD#.#MM#.#YYYY#, #hh#:#mm#:#ss'});
+        Plc.readDt({addr: '%MB56', jvar: 'field20.data'});
     };
     var pollWert12 = function() {
-        Plc.readDate({addr: '%MB58', jvar: 'field12.data', format:'#WEEKDAY#, #DD#.#MM#.#YYYY'});
+        Plc.readDate({addr: '%MB60', jvar: 'field12.data', format:'#WEEKDAY#, #DD#.#MM#.#YYYY'});
     };
     var pollWert13 = function() {
-        Plc.readReal({addr: '%MB32', jvar: 'field13.data', decPlaces:2});
+        Plc.readReal({addr: '%MB32', jvar: 'field13.data', decPlaces: 2});
         Plc.readReal({addr: '%MB32', jvar: 'field21.data'});
     };
     
@@ -99,15 +99,15 @@ window.onload = function() {
     };
     document.getElementById('button10').onclick = function() {
         var wert = new Date(new Date());
-        Plc.writeTod({addr: '%MB50', val: wert, oc: pollWert10, ocd: 50});
+        Plc.writeTod({addr: '%MB52', val: wert, oc: pollWert10, ocd: 50});
     };
     document.getElementById('button11').onclick = function() {
         var wert = new Date(new Date());
-        Plc.writeDt({addr: '%MB54', val: wert, oc: pollWert11, ocd: 50});
+        Plc.writeDt({addr: '%MB56', val: wert, oc: pollWert11, ocd: 50});
     };
     document.getElementById('button12').onclick = function() {
         var wert = new Date(new Date());
-        Plc.writeDate({addr: '%MB58', val: wert, oc: pollWert12, ocd: 50});
+        Plc.writeDate({addr: '%MB60', val: wert, oc: pollWert12, ocd: 50});
     };
     document.getElementById('button13').onclick = function() {
         var wert = document.getElementById('input6').value;
