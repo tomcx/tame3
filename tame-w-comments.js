@@ -399,7 +399,8 @@ TAME.WebServiceClient = function(service) {
      */
     function dataToByteArray(item, type, len) {
         
-        var bytes, val, strlen, sl, i;
+        var bytes = [],
+            val, strlen, sl, i;
         
         //If no value is passed, set value to zero and log an error message.
         if (item.val === undefined) {
@@ -2146,7 +2147,6 @@ TAME.WebServiceClient = function(service) {
         //Run through the elements in the item list.
         for (idx = 0, listlen = itemList.length; idx < listlen; idx++) {
 
-            bytes = [];
             item = itemList[idx];
             
             //Separate type and formatting string.
@@ -2171,6 +2171,7 @@ TAME.WebServiceClient = function(service) {
                 }
             }
             
+            //Convert data, depending on the type
             if (type[0] === 'EndStruct') {
                 //Calculate the padding bytes at the end of the structure
                 //"EndStruct" is only used with "readArrayOfStructures/writeArrayOfStructures".
