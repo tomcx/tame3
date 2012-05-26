@@ -2283,12 +2283,52 @@ TAME.WebServiceClient = function(service) {
         var adsReq = {},
             itemList = reqDescr.items,
             type = [],
-            listlen, mod, vlen, strlen, idx;
+            reqBuffer = [],
+            listlen, item, idx, bufferIdx, len;
+        
+        //Build the Request Buffer
+        for (idx = 0, listlen = itemList.length; idx < listlen; idx++) {
             
+            item = itemList[idx];
             
+            //Parse the address of the item and add IndexGroup and Offset to
+            //the item.
+            parseAddr(item);
             
+            //Debug: Log the Request Descriptor to the console.
+            if (reqDescr.debug) {
+                try {
+                    console.log(reqDescr);
+                } catch(e) {}
+            }
+        
+            //Separate type and formatting string.
+            if (item.type !== undefined) {
+                type = item.type.split('.');
+            }
             
-    //Generate the ADS request object and call the send function.
+            //Length of the data type.
+            if (type[0] == 'STRING') {
+                //If no length is given, set it to 80 characters (TwinCAT default).                 
+                len = (type[1] === undefined) ? plcTypeLen.STRING : parseInt(type[1],10);
+            } else {
+                len = plcTypeLen[type[0]];
+            }
+            
+            reqBuffer[bufferIdx] = item.IndexGroup;
+            reqBuffer[bufferIdx + 1] = item.IndexOffset;
+            reqBuffer[bufferIdx + 2] = len;
+            
+            bufferIdx++;
+            
+        }
+        
+        
+        //Set IndexGroup and Offset for the request    
+        reqDescr.IndexGroup = fields.SumRd;
+        reqDescr.IndexOffset = itemList.length;
+        
+        //Generate the ADS request object and call the send function.
         adsReq = {
             method: 'Read',
             reqDescr: reqDescr
