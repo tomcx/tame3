@@ -1353,6 +1353,81 @@ TAME.WebServiceClient = function(service) {
     }
     
     /**
+     * The function returns the IndexGroup for a PLC variable address.
+     * 
+     * @param {String} addr         A PLC variable address, i.e. "%MX95.1
+     * @return {Number} indexGroup  The IndexGroup for the ADS request. 
+     */
+    function getIndexGroup(addr) {
+        var indexGroup;
+        
+        if (typeof addr == 'string' && addr.charAt(0) == '%') {
+            if (addr.charAt(2) == 'X') {
+                //Bit addresses.
+                indexGroup = fields[addr.substr(1, 2)];
+                
+            } else {
+                //Byte addresses.
+                indexGroup = fields[addr.substr(1, 1)];                
+            }
+            if (isNaN(indexGroup)) {
+                try {
+                    console.log('TAME library error: IndexGroup is not a number, check address definition.');
+                    console.log('Address: ' + addr);
+                    console.log('IndexGroup: ' + indexGroup);
+                } catch (e) {}
+            }   
+        } else {
+            try {
+                console.log('TAME library error: Wrong address definition, should be a string and start with "%".');
+                console.log('addr:' + addr);
+            } catch (e) {}
+        }
+        return indexGroup;
+    }
+    
+    
+    /**
+     * The function returns the IndexOffset for a PLC variable address.
+     * 
+     * @param {String} addr         A PLC variable address, i.e. "%MX95.1
+     * @return {Number} indexOffset The IndexOffset for the ADS request. 
+     */
+    function getIndexOffset(addr) {
+        var indexOffset, numString = '', mxaddr = [];
+        
+        if (typeof addr == 'string' && addr.charAt(0) == '%') {
+            if (addr.charAt(2) == 'X') {
+                //Bit addresses.
+                numString = addr.substr(3);
+                mxaddr = numString.split('.');
+                indexOffset = mxaddr[0] * 8 + mxaddr[1] * 1;
+            } else {
+                //Byte addresses.
+                indexOffset = parseInt(addr.substr(3), 10);
+                //Address offset is used if only one item of an array
+                //should be sent.
+                if (typeof addrOffset == 'Number') {
+                    indexOffset += addrOffset;
+                }
+            }
+            if (isNaN(indexOffset)) {
+                try {
+                    console.log('TAME library error: IndexOffset is not a number, check address definition.');
+                    console.log('Address: ' + addr);
+                    console.log('IndexGroup: ' + indexOffset);
+                } catch (e) {}
+            }       
+        } else {
+            try {
+                console.log('TAME library error: Wrong address definition, should be a string and start with "%".');
+                console.log('addr:' + addr);
+            } catch (e) {}
+        }
+        return indexOffset;  
+    }
+    
+    /**
      * Parse the address of an item or Request Descriptor and create
      * IndexGroup and IndexOffset.
      * 
@@ -2135,7 +2210,7 @@ TAME.WebServiceClient = function(service) {
         
         //Parse the request address, create IndexGroup/IndexOffset and append them
         //to the request descriptor.
-        parseAddr(reqDescr);
+        //parseAddr(reqDescr);
         
         //Debug: Log the Request Descriptor to the console.
         if (reqDescr.debug) {
@@ -2194,6 +2269,8 @@ TAME.WebServiceClient = function(service) {
         //Generate the ADS request object and call the send function.
         adsReq = {
             method: 'Write',
+            indexGroup: getIndexGroup(reqDescr.addr),
+            indexOffset: getIndexOffset(reqDescr.addr),
             pData: pData,
             reqDescr: reqDescr
         };
@@ -2218,7 +2295,7 @@ TAME.WebServiceClient = function(service) {
             listlen, mod, vlen, strlen, idx;
 
         //Parse the request address and create IndexGroup/IndexOffset.
-        parseAddr(reqDescr);
+        //parseAddr(reqDescr);
         
         //Debug: Log the Request Descriptor to the console.
         if (reqDescr.debug) {
@@ -2266,6 +2343,8 @@ TAME.WebServiceClient = function(service) {
         //Generate the ADS request object and call the send function.
         adsReq = {
             method: 'Read',
+            indexGroup: getIndexGroup(reqDescr.addr),
+            indexOffset: getIndexOffset(reqDescr.addr),
             reqDescr: reqDescr
         };
         asyncRequest(adsReq).send();
@@ -2284,7 +2363,7 @@ TAME.WebServiceClient = function(service) {
             itemList = reqDescr.items,
             type = [],
             reqBuffer = [],
-            listlen, item, idx, bufferIdx, len;
+            listlen, item, idx, bIdx, len;
         
         //Build the Request Buffer
         for (idx = 0, listlen = itemList.length; idx < listlen; idx++) {
@@ -2293,7 +2372,7 @@ TAME.WebServiceClient = function(service) {
             
             //Parse the address of the item and add IndexGroup and Offset to
             //the item.
-            parseAddr(item);
+            //parseAddr(item);
             
             //Debug: Log the Request Descriptor to the console.
             if (reqDescr.debug) {
@@ -2315,22 +2394,22 @@ TAME.WebServiceClient = function(service) {
                 len = plcTypeLen[type[0]];
             }
             
-            reqBuffer[bufferIdx] = item.IndexGroup;
-            reqBuffer[bufferIdx + 1] = item.IndexOffset;
-            reqBuffer[bufferIdx + 2] = len;
-            
-            bufferIdx++;
+            reqBuffer[bIdx++] = getIndexGroup(item.addr);
+            reqBuffer[bIdx++] = getIndexOffset(item.addr);
+            reqBuffer[bIdx++] = len;
             
         }
         
         
         //Set IndexGroup and Offset for the request    
-        reqDescr.IndexGroup = fields.SumRd;
-        reqDescr.IndexOffset = itemList.length;
+        //reqDescr.IndexGroup = fields.SumRd;
+        //reqDescr.IndexOffset = itemList.length;
         
         //Generate the ADS request object and call the send function.
         adsReq = {
             method: 'Read',
+            indexGroup: fields.SumRd,
+            indexOffset: itemList.length,
             reqDescr: reqDescr
         };
         asyncRequest(adsReq).send();
