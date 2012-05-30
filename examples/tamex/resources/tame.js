@@ -75,15 +75,15 @@ TAME.WebServiceClient = function(service) {
     
         //Index-Group's
         fields = {
-            M: '16416',    //PLC memory range(%M field), READ_M - WRITE_M
-            MX: '16417',   //PLC memory range(%MX field), READ_MX - WRITE_MX
-            I: '61472',    //PLC process diagram of the physical inputs(%I field), READ_I - WRITE_I
-            IX: '61473',   //PLC process diagram of the physical inputs(%IX field), READ_IX - WRITE_IX
-            Q: '61488',    //PLC process diagram of the physical outputs(%Q field), READ_Q - WRITE_Q
-            QX: '61489',   //PLC process diagram of the physical outputs(%QX field), READ_QX - WRITE_QX
-            SumRd: '61568',
-            SumWr: '61569',
-            SumRdWr: '61570'
+            M: 16416,    //PLC memory range(%M field), READ_M - WRITE_M
+            MX: 16417,   //PLC memory range(%MX field), READ_MX - WRITE_MX
+            I: 61472,    //PLC process diagram of the physical inputs(%I field), READ_I - WRITE_I
+            IX: 61473,   //PLC process diagram of the physical inputs(%IX field), READ_IX - WRITE_IX
+            Q: 61488,    //PLC process diagram of the physical outputs(%Q field), READ_Q - WRITE_Q
+            QX: 61489,   //PLC process diagram of the physical outputs(%QX field), READ_QX - WRITE_QX
+            SumRd: 61568,
+            SumWr: 61569,
+            SumRdWr: 61570
         },
         
         //Lenght of PLC data types in byte.
@@ -399,7 +399,8 @@ TAME.WebServiceClient = function(service) {
      */
     function dataToByteArray(item, type, len) {
         
-        var bytes, val, strlen, sl, i;
+        var bytes = [],
+            val, strlen, sl, i;
         
         //If no value is passed, set value to zero and log an error message.
         if (item.val === undefined) {
@@ -1156,10 +1157,9 @@ TAME.WebServiceClient = function(service) {
     } 
 
     /**
-     * Decode the response string of a read request and store the data.
+     * Decode the response string of a Read Request and store the data.
      * 
-     * @param {Object} adsReq
-     * @param {String} response
+     * @param {Object} adsReq   ADS Reqest Object
      */
     function parseReadReq(adsReq) {
         
@@ -1195,7 +1195,7 @@ TAME.WebServiceClient = function(service) {
                 //Get the length of the data types.
                 len = plcTypeLen[type[0]];
                 
-                switch (format) {
+                switch (type[0]) {
                     case 'STRING':
                         if (typeof format == 'string') {
                             strlen = parseInt(format, 10);
@@ -1229,7 +1229,7 @@ TAME.WebServiceClient = function(service) {
                 dataSubString = dataString.substr(strAddr, len);
                 data = subStringToData(dataSubString, type[0], format);
                 
-                //Parse the name of the variable and write the data
+                //Parse the name of the JavaScript variable and write the data to it
                 if (type[0] !== 'EndStruct') {
                     parseVarName(itemList[idx].jvar, data, adsReq.reqDescr.dataObj, itemList[idx].prefix, itemList[idx].suffix);
                 }
@@ -1243,11 +1243,97 @@ TAME.WebServiceClient = function(service) {
             try {
                 console.log('TAME library error: Parsing Failed:' + e);
                     console.log(itemList[idx]);
-                } catch (e) {}
-                return;
+            } catch (e) {}
+            return;
         }
     }
     
+    /**
+     * Decode the response string of a SumReadRequest and store the data.
+     * 
+     * @param {Object} adsReq   ADS Request Object
+     */
+    function parseSumReadReq(adsReq) {
+        
+        var response = adsReq.xmlHttpReq.responseXML.documentElement,
+        itemList = adsReq.reqDescr.items,
+        type = [],
+        strAddr = 0,
+        dataString, dataSubString, data, strlen, len, format, idx, listlen, errorCode;
+        
+    
+        try {
+            //Normalize data (esp. for Firefox, who splits data in 4k chunks).
+            if (typeof response.normalize == 'function') {
+                response.normalize();
+            }
+            
+            dataString = decodeBase64(response.getElementsByTagName('ppData')[0].firstChild.data);
+            
+            
+            //Read the error codes of the ADS sub commands.
+            for (idx = 0, listlen = itemList.length; idx < listlen; idx++) {
+                
+                dataSubString = dataString.substr(strAddr, 4);
+                errorCode = subStringToData(dataSubString, 'DWORD');
+                
+                if (errorCode !== 0) {
+                    try {
+                        console.log('TAME library error: ADS sub command error while processing a SumReadRequest!');
+                        console.log('Error code: ' + errorCode);
+                        console.log('Item address: ' + itemList[idx].addr);
+                    } catch (e) {}
+                }
+                
+                strAddr += len;
+            }
+            
+            
+            //Run through the elements in the item list.
+            for (idx = 0; idx < listlen; idx++) {
+                
+                //Split data type and formatting string.
+                type.length = 1;
+                type = itemList[idx].type.split('.');
+                
+                //Join the formatting string if there were points in it.
+                if (type.length > 2) {
+                    format = type.slice(1).join('.');
+                } else {
+                    format = type[1];
+                }
+                
+                //Get the length of the data types.
+                len = plcTypeLen[type[0]];
+                
+                if (type[0] !== 'STRING') {
+                    if (typeof format == 'string') {
+                        strlen = parseInt(format, 10);
+                    }
+                    len = (isValidStringLen(strlen) ? strlen : len) + 1;             
+                }
+                
+                //console.log(strAddr + '; ' + type[0]);
+                
+                //Slice the string and decode the data
+                dataSubString = dataString.substr(strAddr, len);
+                data = subStringToData(dataSubString, type[0], format);
+                
+                //Parse the name of the JavaScript variable and write the data to it
+                parseVarName(itemList[idx].jvar, data, adsReq.reqDescr.dataObj, itemList[idx].prefix, itemList[idx].suffix);
+
+                //Set the next string address
+                strAddr += len;
+
+            }
+        } catch (e) {
+            try {
+                console.log('TAME library error: Parsing Failed:' + e);
+                    console.log(itemList[idx]);
+            } catch (e) {}
+            return;
+        }
+    }
     
     
     //======================================================================================
@@ -1349,6 +1435,81 @@ TAME.WebServiceClient = function(service) {
             } catch(e){}
             return false;
         } 
+    }
+    
+    /**
+     * The function returns the IndexGroup for a PLC variable address.
+     * 
+     * @param {String} addr         A PLC variable address, i.e. "%MX95.1
+     * @return {Number} indexGroup  The IndexGroup for the ADS request. 
+     */
+    function getIndexGroup(addr) {
+        var indexGroup;
+        
+        if (typeof addr == 'string' && addr.charAt(0) == '%') {
+            if (addr.charAt(2) == 'X') {
+                //Bit addresses.
+                indexGroup = fields[addr.substr(1, 2)];
+                
+            } else {
+                //Byte addresses.
+                indexGroup = fields[addr.substr(1, 1)];                
+            }
+            if (isNaN(indexGroup)) {
+                try {
+                    console.log('TAME library error: IndexGroup is not a number, check address definition.');
+                    console.log('Address: ' + addr);
+                    console.log('IndexGroup: ' + indexGroup);
+                } catch (e) {}
+            }   
+        } else {
+            try {
+                console.log('TAME library error: Wrong address definition, should be a string and start with "%".');
+                console.log('addr:' + addr);
+            } catch (e) {}
+        }
+        return indexGroup;
+    }
+    
+    
+    /**
+     * The function returns the IndexOffset for a PLC variable address.
+     * 
+     * @param {String} addr         A PLC variable address, i.e. "%MX95.1
+     * @return {Number} indexOffset The IndexOffset for the ADS request. 
+     */
+    function getIndexOffset(addr) {
+        var indexOffset, numString = '', mxaddr = [];
+        
+        if (typeof addr == 'string' && addr.charAt(0) == '%') {
+            if (addr.charAt(2) == 'X') {
+                //Bit addresses.
+                numString = addr.substr(3);
+                mxaddr = numString.split('.');
+                indexOffset = mxaddr[0] * 8 + mxaddr[1] * 1;
+            } else {
+                //Byte addresses.
+                indexOffset = parseInt(addr.substr(3), 10);
+                //Address offset is used if only one item of an array
+                //should be sent.
+                if (typeof addrOffset == 'Number') {
+                    indexOffset += addrOffset;
+                }
+            }
+            if (isNaN(indexOffset)) {
+                try {
+                    console.log('TAME library error: IndexOffset is not a number, check address definition.');
+                    console.log('Address: ' + addr);
+                    console.log('IndexGroup: ' + indexOffset);
+                } catch (e) {}
+            }       
+        } else {
+            try {
+                console.log('TAME library error: Wrong address definition, should be a string and start with "%".');
+                console.log('addr:' + addr);
+            } catch (e) {}
+        }
+        return indexOffset;  
     }
     
     /**
@@ -1462,9 +1623,9 @@ TAME.WebServiceClient = function(service) {
             soapReq += '</netId><nPort xsi:type=\'xsd:int\'>';
             soapReq += port;
             soapReq += '</nPort><indexGroup xsi:type=\'xsd:unsignedInt\'>';
-            soapReq += this.reqDescr.indexGroup;
+            soapReq += this.indexGroup;
             soapReq += '</indexGroup><indexOffset xsi:type=\'xsd:unsignedInt\'>';
-            soapReq += this.reqDescr.indexOffset;
+            soapReq += this.indexOffset;
             soapReq += '</indexOffset>';
     
             if (this.method === 'Read' && this.reqDescr.readLength > 0) {
@@ -2134,7 +2295,7 @@ TAME.WebServiceClient = function(service) {
         
         //Parse the request address, create IndexGroup/IndexOffset and append them
         //to the request descriptor.
-        parseAddr(reqDescr);
+        //parseAddr(reqDescr);
         
         //Debug: Log the Request Descriptor to the console.
         if (reqDescr.debug) {
@@ -2146,7 +2307,6 @@ TAME.WebServiceClient = function(service) {
         //Run through the elements in the item list.
         for (idx = 0, listlen = itemList.length; idx < listlen; idx++) {
 
-            bytes = [];
             item = itemList[idx];
             
             //Separate type and formatting string.
@@ -2171,6 +2331,7 @@ TAME.WebServiceClient = function(service) {
                 }
             }
             
+            //Convert data, depending on the type
             if (type[0] === 'EndStruct') {
                 //Calculate the padding bytes at the end of the structure
                 //"EndStruct" is only used with "readArrayOfStructures/writeArrayOfStructures".
@@ -2184,15 +2345,21 @@ TAME.WebServiceClient = function(service) {
                 pData = pData.concat(bytes);
             }
         }
+        
+        console.log(pData);
 
         //Convert the data to Base64.
         if (pData && pData.length > 0) {
             pData = encodeBase64(pData);
-        }   
+        }
+        
+        console.log(pData);
 
         //Generate the ADS request object and call the send function.
         adsReq = {
             method: 'Write',
+            indexGroup: getIndexGroup(reqDescr.addr),
+            indexOffset: getIndexOffset(reqDescr.addr),
             pData: pData,
             reqDescr: reqDescr
         };
@@ -2217,7 +2384,7 @@ TAME.WebServiceClient = function(service) {
             listlen, mod, vlen, strlen, idx;
 
         //Parse the request address and create IndexGroup/IndexOffset.
-        parseAddr(reqDescr);
+        //parseAddr(reqDescr);
         
         //Debug: Log the Request Descriptor to the console.
         if (reqDescr.debug) {
@@ -2265,6 +2432,8 @@ TAME.WebServiceClient = function(service) {
         //Generate the ADS request object and call the send function.
         adsReq = {
             method: 'Read',
+            indexGroup: getIndexGroup(reqDescr.addr),
+            indexOffset: getIndexOffset(reqDescr.addr),
             reqDescr: reqDescr
         };
         asyncRequest(adsReq).send();
@@ -2282,14 +2451,76 @@ TAME.WebServiceClient = function(service) {
         var adsReq = {},
             itemList = reqDescr.items,
             type = [],
-            listlen, mod, vlen, strlen, idx;
+            reqBuffer = [],
+            bytes = [],
+            bIdx = 0,
+            listlen  = itemList.length,
+            item, idx, len, pData;
+        
+        //Build the Request Buffer
+        for (idx = 0; idx < listlen; idx++) {
             
+            item = itemList[idx];
             
+            //Parse the address of the item and add IndexGroup and Offset to
+            //the item.
+            //parseAddr(item);
             
+            //Debug: Log the Request Descriptor to the console.
+            if (reqDescr.debug) {
+                try {
+                    console.log(reqDescr);
+                } catch(e) {}
+            }
+        
+            //Separate type and formatting string.
+            if (item.type !== undefined) {
+                type = item.type.split('.');
+            }
             
-    //Generate the ADS request object and call the send function.
+            //Length of the data type.
+            if (type[0] == 'STRING') {
+                //If no length is given, set it to 80 characters (TwinCAT default).                 
+                len = (type[1] === undefined) ? plcTypeLen.STRING : parseInt(type[1],10);
+            } else {
+                len = plcTypeLen[type[0]];
+            }
+            
+            //Build the request buffer
+            item.val = getIndexGroup(item.addr);
+            bytes = dataToByteArray(item, ['UDINT'], 4);
+            reqBuffer = reqBuffer.concat(bytes);
+            
+            item.val = getIndexOffset(item.addr);
+            bytes = dataToByteArray(item, ['UDINT'], 4);
+            reqBuffer = reqBuffer.concat(bytes);
+            
+            item.val = len;
+            bytes = dataToByteArray(item, ['UDINT'], 4);
+            reqBuffer = reqBuffer.concat(bytes);
+            
+        }
+        
+        //Convert the request buffer to Base64 coded data.
+        if (reqBuffer.length > 0) {
+            pData = encodeBase64(reqBuffer);
+        }   
+        
+        
+        console.log(reqBuffer);
+        console.log(pData);
+        
+        //Set IndexGroup and Offset for the request    
+        //reqDescr.IndexGroup = fields.SumRd;
+        //reqDescr.IndexOffset = itemList.length;
+        
+        //Generate the ADS request object and call the send function.
         adsReq = {
             method: 'Read',
+            indexGroup: fields.SumRd,
+            indexOffset: itemList.length,
+            sumReq: true,
+            pData: pData,
             reqDescr: reqDescr
         };
         asyncRequest(adsReq).send();
@@ -2419,19 +2650,27 @@ TAME.WebServiceClient = function(service) {
             errorCode = 0;
         }
         
+        //Normalize data (esp. for Firefox, who splits data in 4k chunks).
+        if (typeof response.normalize == 'function') {
+            response.normalize();
+        }
+        
         //Decode data if it's a read request.
         if (adsReq.method === 'Read') {
-            
-            parseReadReq(adsReq);
-            
-            //Call the On-Complete-Script.
-            if (typeof adsReq.reqDescr.oc == 'function') {
-                if (typeof adsReq.reqDescr.ocd == 'number') {
-                    window.setTimeout(adsReq.reqDescr.oc, adsReq.reqDescr.ocd);
-                }
-                else {
-                    adsReq.reqDescr.oc();
-                }
+            if (adsReq.sumReq) {
+                parseSumReadReq(adsReq);
+            } else {
+                parseReadReq(adsReq);
+            }
+        }
+        
+        //Call the On-Complete-Script.
+        if (typeof adsReq.reqDescr.oc == 'function') {
+            if (typeof adsReq.reqDescr.ocd == 'number') {
+                window.setTimeout(adsReq.reqDescr.oc, adsReq.reqDescr.ocd);
+            }
+            else {
+                adsReq.reqDescr.oc();
             }
         }
     };
