@@ -12,6 +12,9 @@ var Demo = {
 
 window.onload = function(){
     
+    //Get the symbols
+    Plc.readSymbols('../resources/demo.tpy');
+    
     //I'm lazy, so I store the input/display fields in an array
     (function () {
         for (var i = 0; i < 10; i++) {

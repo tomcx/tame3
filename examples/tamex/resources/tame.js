@@ -137,6 +137,9 @@ TAME.WebServiceClient = function(service) {
         //Array for the request acknowledgement counter.
         currReq = [0],
         
+        //The Symbol Table for accessing variables per name.
+        symbolTable = {},
+        
         url,
         netId,
         port;
@@ -392,7 +395,7 @@ TAME.WebServiceClient = function(service) {
     /**
      * Function for converting the data values to a byte array.
      * 
-     * @param {Object} item     The item from the item list of a request descriptor.
+     * @param {Object} item     An item of the item list of a request descriptor.
      * @param {Array} type      Contains the data type (type[0]) and the formatting string if used.
      * @param {Number} len      Data length.
      * @return {Array} bytes    An array containing the data as byte values.
@@ -499,7 +502,7 @@ TAME.WebServiceClient = function(service) {
                 } else {
                     try {
                         console.log('TAME library error: Date is not an object!)');
-                        console.log(item.val);
+                        console.log(item);
                     } catch(e) {}
                 }
                 bytes = numToByteArr(val, len);
@@ -562,14 +565,14 @@ TAME.WebServiceClient = function(service) {
                     val = 0;
                     try {
                         console.log('TAME library warning: Lower limit for TIME variable exceeded!)');
-                        console.log(item.val + type[1]);
+                        console.log('value: ' + item.val + type[1]);
                         console.log(item);
                     } catch(e) {}
                 } else if (val > 4294967295) {
                     val = 4294967295;
                     try {
                         console.log('TAME library warning: Upper limit for TIME variable exceeded!)');
-                        console.log(item.val + type[1]);
+                        console.log('value: ' + item.val + type[1]);
                         console.log(item);
                     } catch(e) {}
                 }
@@ -580,8 +583,7 @@ TAME.WebServiceClient = function(service) {
                 break;
             default:
                 try {
-                    console.log('TAME library error: Unknown data type in write request : ' + item.type);
-                    console.log(item);
+                    console.log('TAME library error: Unknown data type in write request : ' + type[0]);
                 } catch (e) {}
                 break;
         }
@@ -1334,6 +1336,10 @@ TAME.WebServiceClient = function(service) {
             return;
         }
     }
+    
+    
+    
+    
     
     
     //======================================================================================
@@ -2455,6 +2461,7 @@ TAME.WebServiceClient = function(service) {
             bytes = [],
             bIdx = 0,
             listlen  = itemList.length,
+            dummy = {},
             item, idx, len, pData;
         
         //Build the Request Buffer
@@ -2486,17 +2493,19 @@ TAME.WebServiceClient = function(service) {
                 len = plcTypeLen[type[0]];
             }
             
-            //Build the request buffer
-            item.val = getIndexGroup(item.addr);
-            bytes = dataToByteArray(item, ['UDINT'], 4);
+            //Build the request buffer.
+            //The function dataToByteArray expects an item with a value for
+            //converting, so a dummy object is used here.
+            dummy.val = getIndexGroup(item.addr);
+            bytes = dataToByteArray(dummy, ['UDINT'], 4);
             reqBuffer = reqBuffer.concat(bytes);
             
-            item.val = getIndexOffset(item.addr);
-            bytes = dataToByteArray(item, ['UDINT'], 4);
+            dummy.val = getIndexOffset(item.addr);
+            bytes = dataToByteArray(dummy, ['UDINT'], 4);
             reqBuffer = reqBuffer.concat(bytes);
             
-            item.val = len;
-            bytes = dataToByteArray(item, ['UDINT'], 4);
+            dummy.val = len;
+            bytes = dataToByteArray(dummy, ['UDINT'], 4);
             reqBuffer = reqBuffer.concat(bytes);
             
         }
@@ -2516,7 +2525,7 @@ TAME.WebServiceClient = function(service) {
         
         //Generate the ADS request object and call the send function.
         adsReq = {
-            method: 'Read',
+            method: 'Write',
             indexGroup: fields.SumRd,
             indexOffset: itemList.length,
             sumReq: true,
@@ -2526,6 +2535,64 @@ TAME.WebServiceClient = function(service) {
         asyncRequest(adsReq).send();
             
     };
+    
+    
+    /**
+     * Fetch the symbol file (*.tpy) from the server and create
+     * an object with the symbol names as the properties.
+     * 
+     * 
+     */
+    this.readSymbols = function(url) {
+        
+        var xmlDoc, name, symbolXmlArray = [];
+        
+        function getNodes() {
+            
+            //Create an Array of the Elements with "Symbol" as tag name.
+            symbolXmlArray = xmlDoc.getElementsByTagName('Symbol');
+
+            for (var i = 0; i < symbolXmlArray.length; i++) {
+                
+                //Get the name of the symbol and create an object property with it.
+                //symbolTable is declared outside in the constructor function.
+                var name = symbolXmlArray[i].getElementsByTagName('Name')[0].childNodes[0].nodeValue;
+                if (name) {
+                    symbolTable[name] = {};
+                }
+                
+                //Get the data of the symbol.
+                try {
+                    symbolTable[name].type = symbolXmlArray[i].getElementsByTagName('Type')[0].childNodes[0].nodeValue;
+                    symbolTable[name].indexGroup = symbolXmlArray[i].getElementsByTagName('IGroup')[0].childNodes[0].nodeValue;
+                    symbolTable[name].indexOffset = symbolXmlArray[i].getElementsByTagName('IOffset')[0].childNodes[0].nodeValue;
+                    symbolTable[name].bitSize = symbolXmlArray[i].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue;
+                } catch (e) {}
+            }
+            console.log(symbolTable);
+        }
+        
+        if (document.implementation.createDocument) {
+            xmlDoc = document.implementation.createDocument("", "", null);
+            xmlDoc.onload = getNodes;
+        } else if(window.ActiveXObject) {
+            xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
+            xmlDoc.onreadystatechange = function () {
+                if (xmlDoc.readyState == 4) {
+                    getNodes();
+                }
+            };
+        } else {
+            try {
+                console.log('TAME library error: This browser provides no method for fetching the symbole table!');
+                return;
+            } catch (e) {}
+        }
+        
+        xmlDoc.load(url);
+        
+    };
+    
 
     /**
      * The shortcuts for reading and writing data.
@@ -2612,8 +2679,6 @@ TAME.WebServiceClient = function(service) {
     this.readArrayOfDate = function(args) { createArrayDescriptor('Read', 'DATE', args); };
     this.readArrayOfDt = function(args) { createArrayDescriptor('Read', 'DT', args); };
     this.readArrayOfStruct = function(args) { createArrayDescriptor('Read', 'STRUCT', args); };
-    
-    
     
     
        
