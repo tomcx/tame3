@@ -10,10 +10,10 @@ var Demo = {
 };
 
 
-window.onload = function(){
+window.onload = function() {
     
     //Get the symbols
-    Plc.readSymbols('../resources/demo.tpy');
+    Plc.readSymFile('../resources/demo.tpy');
     
     //I'm lazy, so I store the input/display fields in an array
     (function () {
@@ -57,7 +57,7 @@ window.onload = function(){
     //Read request: If the variables in the PLC follow one another in a
     //direct sequence, you can use the 'cont' option and omit the variable
     //addresses. 
-    Demo.readData = function(){
+    Demo.readData = function() {
         Plc.sumReadReq({
             items: [{
                 addr:  '%MB4',
