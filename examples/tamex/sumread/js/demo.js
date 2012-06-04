@@ -14,6 +14,7 @@ window.onload = function() {
     
     //Get the symbols
     Plc.readSymFile('../resources/demo.tpy');
+    Plc.logSymbols();
     
     //I'm lazy, so I store the input/display fields in an array
     (function () {

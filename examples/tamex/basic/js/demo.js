@@ -11,6 +11,9 @@ var field1, field2, field5, field6, field7, field8, field9,
 
 window.onload = function() {
     
+    Plc.readSymFile('http://192.168.1.2/tame3/resources/demo.tpy');
+    Plc.logSymbols();
+  
     /*
      *  Examples for reading/writing on button click.
      */
@@ -38,7 +41,7 @@ window.onload = function() {
         Plc.readBool({addr: '%MX0.1', jvar: 'field2.data'});
     };
     var pollWert5 = function() {
-        Plc.readSint({addr: '%MB4', jvar: 'field5.data'});
+        Plc.readSint({name: '.In_SINT1', jvar: 'field5.data'});
     };
     var pollWert6 = function() {
         Plc.readInt({addr: '%MB8', jvar: 'field6.data'});
@@ -79,7 +82,7 @@ window.onload = function() {
     };
     document.getElementById('button5').onclick = function() {
         var wert = document.getElementById('input1').value;
-        Plc.writeSint({addr: '%MB4', val: wert, oc: pollWert5, ocd: 50});
+        Plc.writeSint({name: '.In_SINT1', val: wert, oc: pollWert5, ocd: 50});
     };
     document.getElementById('button6').onclick = function() {
         var wert = document.getElementById('input2').value;

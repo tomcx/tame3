@@ -1446,44 +1446,61 @@ TAME.WebServiceClient = function (service) {
     /**
      * The function returns the IndexGroup for a PLC variable address.
      * 
-     * @param {Object} req			An object with the address or the name for the request.
+     * @param {Object} req            An object with the address or the name for the request.
      * @return {Number} indexGroup  The IndexGroup for the ADS request. 
      */
     function getIndexGroup(req) {
         var indexGroup;
         
         if (req.addr) {
-        	//Try to get the IndexGroup by address
-	        if (typeof req.addr == 'string' && req.addr.charAt(0) == '%') {
-	            if (req.addr.charAt(2) == 'X') {
-	                //Bit addresses.
-	                indexGroup = fields[req.addr.substr(1, 2)];   
-	            } else {
-	                //Byte addresses.
-	                indexGroup = fields[req.addr.substr(1, 1)];
-	            }
-	        } else {
-	            try {
-	                console.log('TAME library error: Wrong address definition, should be a string and start with "%"!');
-	                console.log('addr:' + req.addr);
-	                console.log(req);
-	            } catch (e) {}
-	            return;
-	        }
+            //Try to get the IndexGroup by address
+            if (typeof req.addr == 'string' && req.addr.charAt(0) == '%') {
+                if (req.addr.charAt(2) == 'X') {
+                    //Bit addresses.
+                    indexGroup = fields[req.addr.substr(1, 2)];   
+                } else {
+                    //Byte addresses.
+                    indexGroup = fields[req.addr.substr(1, 1)];
+                }
+            } else {
+                try {
+                    console.log('TAME library error: Wrong address definition, should be a string and start with "%"!');
+                    console.log('addr:' + req.addr);
+                    console.log(req);
+                } catch (e) {}
+                return;
+            }
         } else if (req.name) {
-        	//Try to get the IndexGroup by name
-        	if (typeof req.name == 'string') {
-        		indexGroup = symTable[name].IndexGroup;
-        	} else {
-        		try {
-	                console.log('TAME library error: Varible name should be a string!');
-	                console.log('name:' + req.name);
-	                console.log(req);
-	            } catch (e) {}
-	            return;
-        	}	
+            //Try to get the IndexGroup by name
+            console.log(symTable);
+            if (typeof symTable !== 'object') {
+                try {
+                    console.log('TAME library error: There is no symbol table!');
+                    console.log('TAME library error: Did you forget to read the symbol file?');
+                } catch (e) {}
+                return;
+            }
+            if (typeof req.name == 'string') {
+                if (typeof symTable[name].indexGroup == 'number') {
+                  indexGroup = symTable[name].indexGroup;
+                } else {
+                  try {
+                    console.log('TAME library error: Can\'t get the IndexGroup for this request!');
+                    console.log('TAME library error: Please check the variable name.');
+                    console.log(req);
+                } catch (e) {}
+                return;
+                }
+            } else {
+                try {
+                    console.log('TAME library error: Varible name should be a string!');
+                    console.log('name:' + req.name);
+                    console.log(req);
+                } catch (e) {}
+                return;
+            }    
         } else {
-        	try {
+            try {
                 console.log('TAME library error: Neither a name nor an address for the variable/request defined!');
                 console.log('name:' + req.name);
                 console.log(req);
@@ -1506,53 +1523,69 @@ TAME.WebServiceClient = function (service) {
     /**
      * The function returns the IndexOffset for a PLC variable address.
      * 
-     * @param {Object} req			An object with the address or the name for the request.
+     * @param {Object} req            An object with the address or the name for the request.
      * @return {Number} indexOffset The IndexOffset for the ADS request. 
      */
     function getIndexOffset(req) {
         var indexOffset, numString = '', mxaddr = [];
         
-        if (req.addr) {
-	        if (typeof req.addr == 'string' && req.addr.charAt(0) == '%') {
-	            if (req.addr.charAt(2) == 'X') {
-	                //Bit req.addresses.
-	                numString = req.addr.substr(3);
-	                mxaddr = numString.split('.');
-	                indexOffset = mxaddr[0] * 8 + mxaddr[1] * 1;
-	            } else {
-	                //Byte addresses.
-	                indexOffset = parseInt(req.addr.substr(3), 10);
-	                //Address offset is used if only one item of an array
-	                //should be sent.
-	                if (typeof addrOffset == 'Number') {
-	                    indexOffset += addrOffset;
-	                }
-	            }
-	        } else {
-	            try {
-	                console.log('TAME library error: Wrong address definition, should be a string and start with "%".');
-	                console.log('addr:' + req.addr);
-	            } catch (e) {}
-	        }
-        } else if (req.name) {
-        	//Try to get the IndexOffset by name
-        	if (typeof req.name == 'string') {
-        		indexOffset = symTable[name].IndexOffset;
-        		//Address offset is used if only one item of an array
-	            //should be sent.
-        		if (typeof addrOffset == 'Number') {
-                    indexOffset += addrOffset;
+        if (typeof req.addr == 'string') {
+            if (req.addr.charAt(0) == '%') {
+                if (req.addr.charAt(2) == 'X') {
+                    //Bit req.addresses.
+                    numString = req.addr.substr(3);
+                    mxaddr = numString.split('.');
+                    indexOffset = mxaddr[0] * 8 + mxaddr[1] * 1;
+                } else {
+                    //Byte addresses.
+                    indexOffset = parseInt(req.addr.substr(3), 10);
+                    //Address offset is used if only one item of an array
+                    //should be sent.
+                    if (typeof req.addrOffset == 'Number') {
+                        indexOffset += req.addrOffset;
+                    }
                 }
-        	} else {
-        		try {
-	                console.log('TAME library error: Varible name should be a string!');
-	                console.log('Name:' + req.name);
-	                console.log(req);
-	            } catch (e) {}
-	            return;
-        	}	
+            } else {
+                try {
+                    console.log('TAME library error: Wrong address definition, should be a string and start with "%".');
+                    console.log('addr:' + req.addr);
+                } catch (e) {}
+            }
+        } else if (typeof req.name == 'string') {
+            //Try to get the IndexOffset by name
+            if (typeof symTable !== 'object') {
+                try {
+                    console.log('TAME library error: There is no symbol table!');
+                    console.log('TAME library error: Did you forget to read the symbol file?');
+                } catch (e) {}
+                return;
+            }
+            if (typeof req.name == 'string') {
+                if (typeof symTable[name].indexOffset == 'number') {
+                    indexOffset = symTable[name].indexOffset;
+                    //Address offset is used if only one item of an array
+                    //should be sent.
+                    if (typeof req.addrOffset == 'Number') {
+                        indexOffset += req.addrOffset;
+                    }
+                } else {
+                    try {
+                        console.log('TAME library error: Can\'t get the IndexOffset for this request!');
+                        console.log('TAME library error: Please check the variable name.');
+                        console.log(req);
+                } catch (e) {}
+                return;
+                }
+            } else {
+                try {
+                    console.log('TAME library error: Varible name should be a string!');
+                    console.log('Name:' + req.name);
+                    console.log(req);
+                } catch (e) {}
+                return;
+            }    
         } else {
-        	try {
+            try {
                 console.log('TAME library error: Neither a name nor an address for the variable/request defined!');
                 console.log('Name:' + req.name);
                 console.log(req);
@@ -1571,6 +1604,33 @@ TAME.WebServiceClient = function (service) {
         return indexOffset;  
     }
     
+    /**
+     * This function creates an XMLHttpRequest object. 
+     */
+    function createXMLHttpReq() {
+        var xmlHttpReq;
+        
+        if (XMLHttpRequest) {
+            //Create the XMLHttpRequest object.
+            //Mozilla, Opera, Safari and Internet Explorer (> v7)
+            xmlHttpReq = new XMLHttpRequest();
+        } else {
+            //Internet Explorer 6 and older
+            try {
+                xmlHttpReq = new ActiveXObject('Msxml2.XMLHTTP');
+            } catch(e) {
+                try {
+                    xmlHttpReq = new ActiveXObject('Microsoft.XMLHTTP');
+                } catch(e) {
+                    xmlHttpReq = null;
+                    try {
+                        console.log('TAME library error: Failed Creating XMLHttpRequest-Object!');
+                    } catch(e) {}
+                }
+            }
+        }
+        return xmlHttpReq;
+    }    
     
     /**
      * Create the objects for SOAP and XMLHttpRequest and send the request.
@@ -1598,25 +1658,7 @@ TAME.WebServiceClient = function (service) {
             }
                 
             //Create the XMLHttpRequest object.
-            //Mozilla, Opera, Safari and Internet Explorer (> v7)
-            if (XMLHttpRequest !== undefined) {
-                this.xmlHttpReq = new XMLHttpRequest();
-            }
-            //Internet Explorer 6 and older
-            if (! this.xmlHttpReq) {
-                try {
-                    this.xmlHttpReq = new ActiveXObject('Msxml2.XMLHTTP');
-                } catch(e) {
-                    try {
-                        this.xmlHttpReq = new ActiveXObject('Microsoft.XMLHTTP');
-                    } catch(e) {
-                        this.xmlHttpReq = null;
-                        try {
-                            console.log('TAME library error: Failed Creating XMLHttpRequest-Object!');
-                        } catch(e){}
-                    }
-                }
-            }
+            this.xmlHttpReq = createXMLHttpReq();
             
             //Generate the SOAP request.
             soapReq = '<?xml version=\'1.0\' encoding=\'utf-8\'?>';
@@ -1840,6 +1882,7 @@ TAME.WebServiceClient = function (service) {
         //Create the Request Descriptor.
         reqDescr = {
             addr: args.addr,
+            name: args.name,
             id: args.id,
             oc: args.oc,
             ocd: args.ocd,
@@ -1998,6 +2041,7 @@ TAME.WebServiceClient = function (service) {
             
             reqDescr = {
                 addr: args.addr,
+                name: args.name,
                 addrOffset: addrOffset,
                 id: args.id,
                 oc: args.oc,
@@ -2127,6 +2171,7 @@ TAME.WebServiceClient = function (service) {
             
             reqDescr = {
                 addr: args.addr,
+                name: args.name,
                 addrOffset: addrOffset,
                 id: args.id,
                 oc: args.oc,
@@ -2207,6 +2252,7 @@ TAME.WebServiceClient = function (service) {
         
         reqDescr = {
             addr: args.addr,
+            name: args.name,
             id: args.id,
             oc: args.oc,
             ocd: args.ocd,
@@ -2547,12 +2593,12 @@ TAME.WebServiceClient = function (service) {
      */
     this.readSymFile = function(url) {
         
-        var symFile, name, allSymbols, symbolXmlArray = [];
+        var xmlHttpReq, symFile, name, allSymbols, symbolXmlArray = [];
         
         //Function for parsing the XML symbol file and creating
         //an object with the variable names as properties.
         function getNodes() {
-            
+            console.log('symFile:' + symFile);
             //First get only the symbols.
             allSymbols = symFile.getElementsByTagName('Symbols')[0];
             
@@ -2564,7 +2610,7 @@ TAME.WebServiceClient = function (service) {
                 //Get the name of the symbol and create an object property with it.
                 //symTable is declared outside in the constructor function.
                 var name = symbolXmlArray[i].getElementsByTagName('Name')[0].childNodes[0].nodeValue;
-                if (name) {
+                if (typeof name == 'string') {
                     symTable[name] = {};
                 }
                 
@@ -2572,31 +2618,32 @@ TAME.WebServiceClient = function (service) {
                 try {
                     symTable[name].type = symbolXmlArray[i].getElementsByTagName('Type')[0].childNodes[0].nodeValue;
                     symTable[name].indexGroup = symbolXmlArray[i].getElementsByTagName('IGroup')[0].childNodes[0].nodeValue;
+                    symTable[name].indexGroup = parseInt(symTable[name].indexGroup, 10);
                     symTable[name].indexOffset = symbolXmlArray[i].getElementsByTagName('IOffset')[0].childNodes[0].nodeValue;
+                    symTable[name].indexOffset = parseInt(symTable[name].indexOffset, 10);
                     symTable[name].bitSize = symbolXmlArray[i].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue;
+                    symTable[name].bitSize = parseInt(symTable[name].bitSize, 10);
                 } catch (e) {}
             }
         }
         
-        if (document.implementation.createDocument) {
-            symFile = document.implementation.createDocument("", "", null);
-            symFile.onload = getNodes;
-        } else if (window.ActiveXObject) {
-            symFile = new ActiveXObject("Microsoft.XMLDOM");
-            symFile.onreadystatechange = function () {
-                if (symFile.readyState == 4) {
-                    getNodes();
-                }
-            };
-        } else {
-            try {
-                console.log('TAME library error: This browser provides no method for fetching the symbole table!');
-                return;
-            } catch (e) {}
-        }
         
-        //Get the symbol file from the server.
-        symFile.load(url);
+        xmlHttpReq = createXMLHttpReq();
+        
+        if (typeof xmlHttpReq == 'object') {
+    
+            xmlHttpReq.open('GET', url, false);
+            xmlHttpReq.setRequestHeader('Content-Type', 'text/xml');
+            xmlHttpReq.send(null);
+            console.log(typeof DOMParser);
+            console.log(xmlHttpReq);
+            symFile = (new DOMParser()).parseFromString(xmlHttpReq.responseText, "text/xml");
+            getNodes();
+
+        }
+      
+        
+       
         
     };
     
@@ -2605,9 +2652,9 @@ TAME.WebServiceClient = function (service) {
      *  Prints the symbol table to the console.
      */
     this.logSymbols = function() {
-    	
-    	console.log(symTable);
-    	
+        
+        console.log(symTable);
+        
     }
 
 
