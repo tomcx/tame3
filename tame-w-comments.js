@@ -43,32 +43,9 @@ var TAME = {
  */
 TAME.WebServiceClient = function (service) {
 
-    //======================================================================================
-    //                                    Properties
-    //======================================================================================
-
-    //Set language specific names of days and months, default is german.
-    var lang = (typeof service.language == 'string') ? service.language : 'ge';
-    this.dateNames = {
-        weekdShort: TAME.weekdShortNames[lang],
-        weekdLong: TAME.weekdLongNames[lang],
-        monthsShort: TAME.monthsShortNames[lang],
-        monthsLong: TAME.monthsLongNames[lang]
-    };
-
-    //Maximum string length.
-    this.maxStringLen = 255;
-
-    //Maximum count of dropped requests after a request
-    //was not acknowledged (in conjunction with a reqest ID).
-    this.maxDropReq = 10;
-
-    //Check limits of numeric variables before sending them to the PLC
-    this.useCheckBounds = true;
-
 
     //======================================================================================
-    //                                     Variables
+    //                                Initialize Variables
     //======================================================================================
 
     var instance = this,
@@ -108,14 +85,18 @@ TAME.WebServiceClient = function (service) {
             STRING: 80,    //without termination
             EndStruct: 0   //should be 0!
         },
+        
+        //Set language for names of days and months, default is german.
+        lang = (typeof service.language == 'string') ? service.language : 'ge',
 
         //Generate a Base64 alphabet for the encoder. Using an array or object to
         //store the alphabet the en-/decoder runs faster than with the commonly
         //used string. At least with the browsers of 2009. ;-)
         b64Enc = function () {
             var ret = {},
-                str = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-            for (var i = 0; i < str.length; i++) {
+                str = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/',
+                i;
+            for (i = 0; i < str.length; i++) {
                 ret[i] = str.charAt(i);
             }
             return ret;
@@ -124,8 +105,9 @@ TAME.WebServiceClient = function (service) {
         //Generate a Base64 alphabet for the decoder.
         b64Dec = function () {
             var ret = {},
-                str = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-            for (var i = 0; i < str.length; i++) {
+                str = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=',
+                i;
+            for (i = 0; i < str.length; i++) {
                 ret[str.charAt(i)] = i; 
             }
             return ret;
@@ -177,7 +159,83 @@ TAME.WebServiceClient = function (service) {
         return;
     }
     
-        
+    
+    //Get the symbol-file (*.tpy) from the server and create
+    //an object (symTable) with the symbol names as the properties.
+    if (typeof service.symFileUrl == 'string') {
+        (function() {         
+            var xmlHttpReq = createXMLHttpReq(),
+            symbolXmlArray = [],
+            symFile, name, allSymbols;
+            
+            //Synchronous HTTPRequest
+            xmlHttpReq.open('GET', service.symFileUrl, false);
+            xmlHttpReq.setRequestHeader('Content-Type', 'text/xml');
+            xmlHttpReq.send(null);
+
+            if (typeof DOMParser == 'function') {
+                try {
+                    symFile = (new DOMParser()).parseFromString(xmlHttpReq.responseText, "text/xml");
+                    allSymbols = symFile.getElementsByTagName('Symbols')[0];
+                
+                    //Create an Array of the Elements with "Symbol" as tag name.
+                    symbolXmlArray = allSymbols.getElementsByTagName('Symbol');
+                    
+                    //Get the name of the symbol and create an object property with it.
+                    //symTable is declared outside in the constructor function.
+                    for (var i = 0; i < symbolXmlArray.length; i++) {                   
+                        name = symbolXmlArray[i].getElementsByTagName('Name')[0].childNodes[0].nodeValue;
+                        symTable[name] = {
+                            type: symbolXmlArray[i].getElementsByTagName('Type')[0].childNodes[0].nodeValue,
+                            indexGroup: parseInt(symbolXmlArray[i].getElementsByTagName('IGroup')[0].childNodes[0].nodeValue, 10),
+                            indexOffset: parseInt(symbolXmlArray[i].getElementsByTagName('IOffset')[0].childNodes[0].nodeValue, 10),
+                            bitSize: parseInt(symbolXmlArray[i].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue, 10)
+                        };
+                    }
+                } catch(e) {
+                    try {
+                    console.log('TAME library error: An error occured while parsing the symbol file:');
+                    console.log(e);
+                    } catch(e) {}
+                }
+            } else {
+                try {
+                    console.log('TAME library error: Can\'t parse the symbol file cause your brower does not provide a DOMParser function.');
+                } catch(e) {}
+            }   
+        }());
+    } else {
+        try {
+            console.log('TAME library warning: No URL for the symbol file defined. Access to variables by name is not possible.');
+        } catch(e) {}
+    }
+    
+    
+    //======================================================================================
+    //                                Initialize Properties
+    //======================================================================================
+
+    //Set language specific names of days and months.
+    this.dateNames = {
+        weekdShort: TAME.weekdShortNames[lang],
+        weekdLong: TAME.weekdLongNames[lang],
+        monthsShort: TAME.monthsShortNames[lang],
+        monthsLong: TAME.monthsLongNames[lang]
+    };
+
+    //Maximum string length.
+    this.maxStringLen = 255;
+
+    //Maximum count of dropped requests after a request
+    //was not acknowledged (in conjunction with a reqest ID).
+    this.maxDropReq = 10;
+
+    //Check limits of numeric variables before sending them to the PLC
+    this.useCheckBounds = true;
+    
+    
+    
+    
     //======================================================================================
     //                                  Encoder Functions
     //======================================================================================
@@ -1465,36 +1523,27 @@ TAME.WebServiceClient = function (service) {
             } else {
                 try {
                     console.log('TAME library error: Wrong address definition, should be a string and start with "%"!');
-                    console.log('addr:' + req.addr);
                     console.log(req);
                 } catch (e) {}
                 return;
             }
         } else if (req.name) {
             //Try to get the IndexGroup by name
-            console.log(symTable);
-            if (typeof symTable !== 'object') {
-                try {
-                    console.log('TAME library error: There is no symbol table!');
-                    console.log('TAME library error: Did you forget to read the symbol file?');
-                } catch (e) {}
-                return;
-            }
             if (typeof req.name == 'string') {
-                if (typeof symTable[name].indexGroup == 'number') {
-                  indexGroup = symTable[name].indexGroup;
-                } else {
-                  try {
-                    console.log('TAME library error: Can\'t get the IndexGroup for this request!');
-                    console.log('TAME library error: Please check the variable name.');
-                    console.log(req);
-                } catch (e) {}
-                return;
+                try {
+                    indexGroup = symTable[req.name].indexGroup;
+                } catch(e) {
+                    try {
+                        console.log('TAME library error: Can\'t get the IndexGroup for this request!');
+                        console.log('TAME library error: Please check the variable name.');
+                        console.log(e);
+                        console.log(req);
+                        } catch (e) {}
+                    return;
                 }
             } else {
                 try {
                     console.log('TAME library error: Varible name should be a string!');
-                    console.log('name:' + req.name);
                     console.log(req);
                 } catch (e) {}
                 return;
@@ -1502,7 +1551,6 @@ TAME.WebServiceClient = function (service) {
         } else {
             try {
                 console.log('TAME library error: Neither a name nor an address for the variable/request defined!');
-                console.log('name:' + req.name);
                 console.log(req);
             } catch (e) {}
             return;
@@ -1511,7 +1559,6 @@ TAME.WebServiceClient = function (service) {
         if (isNaN(indexGroup)) {
             try {
                 console.log('TAME library error: IndexGroup is not a number, check address or name definition of the variable/request!');
-                console.log('IndexGroup: ' + indexGroup);
                 console.log(req);
             } catch (e) {}
         }
@@ -1529,8 +1576,9 @@ TAME.WebServiceClient = function (service) {
     function getIndexOffset(req) {
         var indexOffset, numString = '', mxaddr = [];
         
-        if (typeof req.addr == 'string') {
-            if (req.addr.charAt(0) == '%') {
+        if (req.addr) {
+            //Try to get the IndexOffset by address
+            if (typeof req.addr == 'string' && req.addr.charAt(0) == '%') {
                 if (req.addr.charAt(2) == 'X') {
                     //Bit req.addresses.
                     numString = req.addr.substr(3);
@@ -1547,39 +1595,33 @@ TAME.WebServiceClient = function (service) {
                 }
             } else {
                 try {
-                    console.log('TAME library error: Wrong address definition, should be a string and start with "%".');
-                    console.log('addr:' + req.addr);
-                } catch (e) {}
-            }
-        } else if (typeof req.name == 'string') {
-            //Try to get the IndexOffset by name
-            if (typeof symTable !== 'object') {
-                try {
-                    console.log('TAME library error: There is no symbol table!');
-                    console.log('TAME library error: Did you forget to read the symbol file?');
+                    console.log('TAME library error: Wrong address definition, should be a string and start with "%"!');
+                    console.log(req);
                 } catch (e) {}
                 return;
             }
+        } else if (req.name) {
+            //Try to get the IndexOffset by name
             if (typeof req.name == 'string') {
-                if (typeof symTable[name].indexOffset == 'number') {
-                    indexOffset = symTable[name].indexOffset;
+                try {
+                    indexOffset = symTable[req.name].indexOffset;
                     //Address offset is used if only one item of an array
                     //should be sent.
                     if (typeof req.addrOffset == 'Number') {
                         indexOffset += req.addrOffset;
                     }
-                } else {
+                } catch(e) {
                     try {
                         console.log('TAME library error: Can\'t get the IndexOffset for this request!');
                         console.log('TAME library error: Please check the variable name.');
+                        console.log(e);
                         console.log(req);
-                } catch (e) {}
-                return;
+                    } catch (e) {}
+                    return;
                 }
             } else {
                 try {
                     console.log('TAME library error: Varible name should be a string!');
-                    console.log('Name:' + req.name);
                     console.log(req);
                 } catch (e) {}
                 return;
@@ -1587,7 +1629,6 @@ TAME.WebServiceClient = function (service) {
         } else {
             try {
                 console.log('TAME library error: Neither a name nor an address for the variable/request defined!');
-                console.log('Name:' + req.name);
                 console.log(req);
             } catch (e) {}
             return;
@@ -1596,7 +1637,6 @@ TAME.WebServiceClient = function (service) {
         if (isNaN(indexOffset)) {
             try {
                 console.log('TAME library error: IndexOffset is not a number, check address or name definition of the variable/request.');
-                console.log('IndexOffset: ' + indexOffset);
                 console.log(req);
             } catch (e) {}
         }
@@ -2398,16 +2438,12 @@ TAME.WebServiceClient = function (service) {
                 pData = pData.concat(bytes);
             }
         }
-        
-        console.log(pData);
 
         //Convert the data to Base64.
         if (pData && pData.length > 0) {
             pData = encodeBase64(pData);
         }
         
-        console.log(pData);
-
         //Generate the ADS request object and call the send function.
         adsReq = {
             method: 'Write',
@@ -2583,71 +2619,7 @@ TAME.WebServiceClient = function (service) {
             
     };
     
-    
-    /**
-     * Fetch the symbol-file (*.tpy) from the server and create
-     * an object with the symbol names as the properties.
-     * 
-     * @param {String} url  The URL of the symbol-file.
-     * 
-     */
-    this.readSymFile = function(url) {
-        
-        var xmlHttpReq, symFile, name, allSymbols, symbolXmlArray = [];
-        
-        //Function for parsing the XML symbol file and creating
-        //an object with the variable names as properties.
-        function getNodes() {
-            console.log('symFile:' + symFile);
-            //First get only the symbols.
-            allSymbols = symFile.getElementsByTagName('Symbols')[0];
-            
-            //Create an Array of the Elements with "Symbol" as tag name.
-            symbolXmlArray = allSymbols.getElementsByTagName('Symbol');
 
-            for (var i = 0; i < symbolXmlArray.length; i++) {
-                
-                //Get the name of the symbol and create an object property with it.
-                //symTable is declared outside in the constructor function.
-                var name = symbolXmlArray[i].getElementsByTagName('Name')[0].childNodes[0].nodeValue;
-                if (typeof name == 'string') {
-                    symTable[name] = {};
-                }
-                
-                //Get the data of the symbol.
-                try {
-                    symTable[name].type = symbolXmlArray[i].getElementsByTagName('Type')[0].childNodes[0].nodeValue;
-                    symTable[name].indexGroup = symbolXmlArray[i].getElementsByTagName('IGroup')[0].childNodes[0].nodeValue;
-                    symTable[name].indexGroup = parseInt(symTable[name].indexGroup, 10);
-                    symTable[name].indexOffset = symbolXmlArray[i].getElementsByTagName('IOffset')[0].childNodes[0].nodeValue;
-                    symTable[name].indexOffset = parseInt(symTable[name].indexOffset, 10);
-                    symTable[name].bitSize = symbolXmlArray[i].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue;
-                    symTable[name].bitSize = parseInt(symTable[name].bitSize, 10);
-                } catch (e) {}
-            }
-        }
-        
-        
-        xmlHttpReq = createXMLHttpReq();
-        
-        if (typeof xmlHttpReq == 'object') {
-    
-            xmlHttpReq.open('GET', url, false);
-            xmlHttpReq.setRequestHeader('Content-Type', 'text/xml');
-            xmlHttpReq.send(null);
-            console.log(typeof DOMParser);
-            console.log(xmlHttpReq);
-            symFile = (new DOMParser()).parseFromString(xmlHttpReq.responseText, "text/xml");
-            getNodes();
-
-        }
-      
-        
-       
-        
-    };
-    
-    
     /**
      *  Prints the symbol table to the console.
      */

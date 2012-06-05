@@ -1,5 +1,5 @@
 /**
- *  @author T.Schmidt, 03.05.2012
+ *  @author T.Schmidt, 05.06.2012
  *  Very basic example for using TAME.
  */
 
@@ -11,7 +11,8 @@ var field1, field2, field5, field6, field7, field8, field9,
 
 window.onload = function() {
     
-    Plc.readSymFile('http://192.168.1.2/tame3/resources/demo.tpy');
+    //For testing:
+    //Log the symbol table to the console.
     Plc.logSymbols();
   
     /*
@@ -35,7 +36,7 @@ window.onload = function() {
     
     //Functions for writing/reading data
     var pollWert1 = function() {
-        Plc.readBool({addr: '%MX0.0', jvar: 'field1.data'});
+        Plc.readBool({name: '.In_BOOL1', jvar: 'field1.data'});
     };
     var pollWert2 = function() {
         Plc.readBool({addr: '%MX0.1', jvar: 'field2.data'});
@@ -74,7 +75,7 @@ window.onload = function() {
     //oc = on-complete, ocd = on-complete-delay (in ms)
     document.getElementById('button1').onclick = function() {
         var wert = document.getElementById('checkbox1').checked;
-        Plc.writeBool({addr: '%MX0.0', val: wert, oc: pollWert1, ocd: 50});
+        Plc.writeBool({name: '.In_BOOL1', val: wert, oc: pollWert1, ocd: 50});
     };
     document.getElementById('button2').onclick = function() {
         var wert = document.getElementById('checkbox2').checked;
@@ -180,7 +181,7 @@ window.onload = function() {
      *  Start
      */
     
-    pollZyk1();
+    //pollZyk1();
     pollWert1();
     pollWert2();
     pollWert5();
