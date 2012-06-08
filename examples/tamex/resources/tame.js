@@ -58,6 +58,8 @@ TAME.WebServiceClient = function (service) {
             IX: 61473,   //PLC process diagram of the physical inputs(%IX field), READ_IX - WRITE_IX
             Q: 61488,    //PLC process diagram of the physical outputs(%Q field), READ_Q - WRITE_Q
             QX: 61489,   //PLC process diagram of the physical outputs(%QX field), READ_QX - WRITE_QX
+            Upload: 61451,
+            UploadInfo: 61452,
             SumRd: 61568,
             SumWr: 61569,
             SumRdWr: 61570
@@ -122,6 +124,8 @@ TAME.WebServiceClient = function (service) {
         //The Symbol Table for accessing variables per name.
         symTable = {},
         
+        symbolCount, uploadLength,
+        
         url,
         netId,
         port;
@@ -180,10 +184,10 @@ TAME.WebServiceClient = function (service) {
                 
                     //Create an Array of the Elements with "Symbol" as tag name.
                     symbolXmlArray = allSymbols.getElementsByTagName('Symbol');
-        
+                    
+                    //Get the name of the symbol and create an object property with it.
+                    //symTable is declared outside in the constructor function.
                     for (var i = 0; i < symbolXmlArray.length; i++) {                   
-                        //Get the name of the symbol and create an object property with it.
-                        //symTable is declared outside in the constructor function.
                         name = symbolXmlArray[i].getElementsByTagName('Name')[0].childNodes[0].nodeValue;
                         symTable[name] = {
                             type: symbolXmlArray[i].getElementsByTagName('Type')[0].childNodes[0].nodeValue,
@@ -196,7 +200,7 @@ TAME.WebServiceClient = function (service) {
                     try {
                     console.log('TAME library error: An error occured while parsing the symbol file:');
                     console.log(e);
-                } catch(e) {}
+                    } catch(e) {}
                 }
             } else {
                 try {
@@ -1231,11 +1235,7 @@ TAME.WebServiceClient = function (service) {
         
     
         try {
-            //Normalize data (esp. for Firefox, who splits data in 4k chunks)
-            if (typeof response.normalize == 'function') {
-                response.normalize();
-            }
-            
+
             dataString = decodeBase64(response.getElementsByTagName('ppData')[0].firstChild.data);
             
             //Run through the elements in the item list.
@@ -1323,11 +1323,7 @@ TAME.WebServiceClient = function (service) {
         
     
         try {
-            //Normalize data (esp. for Firefox, who splits data in 4k chunks).
-            if (typeof response.normalize == 'function') {
-                response.normalize();
-            }
-            
+
             dataString = decodeBase64(response.getElementsByTagName('ppData')[0].firstChild.data);
             
             
@@ -2611,7 +2607,6 @@ TAME.WebServiceClient = function (service) {
             method: 'Write',
             indexGroup: fields.SumRd,
             indexOffset: itemList.length,
-            sumReq: true,
             pData: pData,
             reqDescr: reqDescr
         };
@@ -2758,10 +2753,19 @@ TAME.WebServiceClient = function (service) {
         
         //Decode data if it's a read request.
         if (adsReq.method === 'Read') {
-            if (adsReq.sumReq) {
-                parseSumReadReq(adsReq);
-            } else {
-                parseReadReq(adsReq);
+            
+            switch (adsReq.indexGroup) {
+                case fields.UploadInfo:
+                    parseUploadInfo(adsReq);
+                    break;
+                case fields.Upload:
+                    parseUpload(adsReq);
+                    break;
+                case fields.SumRd:
+                    parseSumReadReq(adsReq);
+                    break;
+                default:
+                    parseReadReq(adsReq); 
             }
         }
         
@@ -2775,9 +2779,101 @@ TAME.WebServiceClient = function (service) {
             }
         }
     };
+    
+    function parseUploadInfo(adsReq) {
+        var response = adsReq.xmlHttpReq.responseXML.documentElement,
+        dataString, dataSubString, data, errorCode, adsReq2;
+        
+    
+        try {
+
+            dataString = decodeBase64(response.getElementsByTagName('ppData')[0].firstChild.data);
+           
+            dataSubString = dataString.substr(0, 4);
+            symbolCount = subStringToData(dataSubString, 'DWORD');
+
+            dataSubString = dataString.substr(4, 4);
+            uploadLength = subStringToData(dataSubString, 'DWORD');
+            
+            console.log('c: ' + symbolCount);           
+        } catch (e) {
+            try {
+                console.log('TAME library error: Parsing of UploadInfo failed:' + e);
+            } catch (e) {}
+            return;
+        }
+        
+        adsReq2 = {
+            method: 'Read',
+            indexGroup: fields.Upload,
+            indexOffset: 0,
+            reqDescr: {
+                readLength: uploadLength   
+            }
+        };
+        asyncRequest(adsReq2).send();
+        
+    
+    }
+    
+    function parseUpload(adsReq) {
+        var response = adsReq.xmlHttpReq.responseXML.documentElement,
+        strAddr = 0,
+        dataString, dataSubString, data, errorCode, cnt, infoLen, info, name;
+        
+    
+        try {
+            dataString = decodeBase64(response.getElementsByTagName('ppData')[0].firstChild.data);
+            
+            for (cnt = 0; cnt < symbolCount; cnt++) {
+                //Get the length of the symbol information
+                dataSubString = dataString.substr(strAddr, 4);
+                infoLen = subStringToData(dataSubString, 'DWORD');
+                
+                info = dataString.substr(strAddr + 4, infoLen - 4);
+                
+                dataSubString = info.substr(strAddr + 26, infoLen - strAddr + 26);
+                name =  subStringToData(dataSubString, 'STRING');
+                
+                console.log(cnt);
+                console.log(info);
+                console.log(strAddr);
+                console.log(name);
+                console.log();
+                
+                symTable[name] = {};
+                
+                strAddr += infoLen;
+            }
+            
+             
+        } catch (e) {
+            try {
+                console.log('TAME library error: Parsing of uploaded symbol information failed:' + e);
+            } catch (e) {}
+            return;
+        }
+    
+    }
+    
+    this.getUploadInfo = function() {
+        
+        //Generate the ADS request object and call the send function.
+        var adsReq = {
+            method: 'Read',
+            indexGroup: fields.UploadInfo,
+            indexOffset: 0,
+            reqDescr: {
+                readLength: 8   
+            }
+        };
+        asyncRequest(adsReq).send();
+    };
+    
 };
 
 
+    
 /**
  * Function for creating the Webservice Client.
  * 
