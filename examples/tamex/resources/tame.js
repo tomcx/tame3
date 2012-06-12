@@ -51,7 +51,7 @@ TAME.WebServiceClient = function (service) {
     var instance = this,
 
         //Index-Group's
-        fields = {
+        indexGroups = {
             M: 16416,    //PLC memory range(%M field), READ_M - WRITE_M
             MX: 16417,   //PLC memory range(%MX field), READ_MX - WRITE_MX
             I: 61472,    //PLC process diagram of the physical inputs(%I field), READ_I - WRITE_I
@@ -164,55 +164,7 @@ TAME.WebServiceClient = function (service) {
     }
     
     
-    //Get the symbol-file (*.tpy) from the server and create
-    //an object (symTable) with the symbol names as the properties.
-    if (typeof service.symFileUrl == 'string') {
-        (function() {         
-            var xmlHttpReq = createXMLHttpReq(),
-            symbolXmlArray = [],
-            symFile, name, allSymbols;
-            
-            //Synchronous HTTPRequest
-            xmlHttpReq.open('GET', service.symFileUrl, false);
-            xmlHttpReq.setRequestHeader('Content-Type', 'text/xml');
-            xmlHttpReq.send(null);
-
-            if (typeof DOMParser == 'function') {
-                try {
-                    symFile = (new DOMParser()).parseFromString(xmlHttpReq.responseText, "text/xml");
-                    allSymbols = symFile.getElementsByTagName('Symbols')[0];
-                
-                    //Create an Array of the Elements with "Symbol" as tag name.
-                    symbolXmlArray = allSymbols.getElementsByTagName('Symbol');
-                    
-                    //Get the name of the symbol and create an object property with it.
-                    //symTable is declared outside in the constructor function.
-                    for (var i = 0; i < symbolXmlArray.length; i++) {                   
-                        name = symbolXmlArray[i].getElementsByTagName('Name')[0].childNodes[0].nodeValue;
-                        symTable[name] = {
-                            type: symbolXmlArray[i].getElementsByTagName('Type')[0].childNodes[0].nodeValue,
-                            indexGroup: parseInt(symbolXmlArray[i].getElementsByTagName('IGroup')[0].childNodes[0].nodeValue, 10),
-                            indexOffset: parseInt(symbolXmlArray[i].getElementsByTagName('IOffset')[0].childNodes[0].nodeValue, 10),
-                            bitSize: parseInt(symbolXmlArray[i].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue, 10)
-                        };
-                    }
-                } catch(e) {
-                    try {
-                    console.log('TAME library error: An error occured while parsing the symbol file:');
-                    console.log(e);
-                    } catch(e) {}
-                }
-            } else {
-                try {
-                    console.log('TAME library error: Can\'t parse the symbol file cause your brower does not provide a DOMParser function.');
-                } catch(e) {}
-            }   
-        }());
-    } else {
-        try {
-            console.log('TAME library warning: No URL for the symbol file defined. Access to variables by name is not possible.');
-        } catch(e) {}
-    }
+    
     
     
     //======================================================================================
@@ -872,6 +824,7 @@ TAME.WebServiceClient = function (service) {
      * @param {String} string
      */
      function parsePlcString(string) {
+        /*
         var len = string.length;
         for (var i = 0; i < len; i++) {
             if (string.charCodeAt(i) === 0) {
@@ -879,6 +832,8 @@ TAME.WebServiceClient = function (service) {
             }
         }
         return string.substr(0, i);
+        */
+       return string.split(String.fromCharCode(0))[0]; 
     }
 
     /**
@@ -1391,7 +1346,87 @@ TAME.WebServiceClient = function (service) {
         }
     }
     
+   
+    /**
+     * Parse the upload information and call the request for 
+     * reading the upload data.
+     * 
+     * @param {Object} adsReq   An ADS Request Descriptor.
+     */
+    function parseUploadInfo(adsReq) {
+        var response = adsReq.xmlHttpReq.responseXML.documentElement,
+        dataString, dataSubString, data, adsReq2;
+          
+        try {
+            dataString = decodeBase64(response.getElementsByTagName('ppData')[0].firstChild.data);          
+            dataSubString = dataString.substr(0, 4);
+            symbolCount = subStringToData(dataSubString, 'DWORD');
+            dataSubString = dataString.substr(4, 4);
+            uploadLength = subStringToData(dataSubString, 'DWORD');             
+        } catch (e) {
+            try {
+                console.log('TAME library error: Parsing of UploadInfo failed:' + e);
+            } catch (e) {}
+            return;
+        }
+        
+        adsReq2 = {
+            method: 'Read',
+            indexGroup: indexGroups.Upload,
+            indexOffset: 0,
+            reqDescr: {
+                readLength: uploadLength   
+            }
+        };
+        asyncRequest(adsReq2).send();
+        
     
+    }
+    
+    
+    /**
+     * Parse the upload data and an object (symTable) with the symbol names 
+     * as the properties. 
+     * 
+     * @param {Object} adsReq   An ADS Request Descriptor.
+     */
+    function parseUpload(adsReq) {
+        var response = adsReq.xmlHttpReq.responseXML.documentElement,
+        strAddr = 0,
+        igOffs = 4,
+        ioOffs = 8,
+        sizeOffs = 12,
+        nameOffs = 30,
+        dataString, dataSubString, data, cnt, infoLen, nameAndType;
+        
+        try {
+            dataString = decodeBase64(response.getElementsByTagName('ppData')[0].firstChild.data);
+            
+            for (cnt = 0; cnt < symbolCount; cnt++) {
+                //Get the length of the symbol information.
+                dataSubString = dataString.substr(strAddr, 4);
+                infoLen = subStringToData(dataSubString, 'DWORD');
+                
+                //Get name and type.
+                nameAndType = dataString.substring(strAddr + nameOffs, (strAddr + infoLen)).split(String.fromCharCode(0));
+                
+                //Create an entry.
+                symTable[nameAndType[0]] = {
+                    type: nameAndType[1],
+                    indexGroup: subStringToData(dataString.substr(strAddr + igOffs, 4), 'DWORD'),                    
+                    indexOffset: subStringToData(dataString.substr(strAddr + ioOffs, 4), 'DWORD'),                   
+                    size: subStringToData(dataString.substr(strAddr + sizeOffs, 4), 'DWORD')
+                };
+                
+                strAddr += infoLen;
+            }     
+        } catch (e) {
+            try {
+                console.log('TAME library error: Parsing of uploaded symbol information failed:' + e);
+            } catch (e) {}
+            return;
+        }
+    }
     
     
     
@@ -1511,10 +1546,10 @@ TAME.WebServiceClient = function (service) {
             if (typeof req.addr == 'string' && req.addr.charAt(0) == '%') {
                 if (req.addr.charAt(2) == 'X') {
                     //Bit addresses.
-                    indexGroup = fields[req.addr.substr(1, 2)];   
+                    indexGroup = indexGroups[req.addr.substr(1, 2)];   
                 } else {
                     //Byte addresses.
-                    indexGroup = fields[req.addr.substr(1, 1)];
+                    indexGroup = indexGroups[req.addr.substr(1, 1)];
                 }
             } else {
                 try {
@@ -2599,13 +2634,13 @@ TAME.WebServiceClient = function (service) {
         console.log(pData);
         
         //Set IndexGroup and Offset for the request    
-        //reqDescr.IndexGroup = fields.SumRd;
+        //reqDescr.IndexGroup = indexGroups.SumRd;
         //reqDescr.IndexOffset = itemList.length;
         
         //Generate the ADS request object and call the send function.
         adsReq = {
             method: 'Write',
-            indexGroup: fields.SumRd,
+            indexGroup: indexGroups.SumRd,
             indexOffset: itemList.length,
             pData: pData,
             reqDescr: reqDescr
@@ -2755,13 +2790,13 @@ TAME.WebServiceClient = function (service) {
         if (adsReq.method === 'Read') {
             
             switch (adsReq.indexGroup) {
-                case fields.UploadInfo:
+                case indexGroups.UploadInfo:
                     parseUploadInfo(adsReq);
                     break;
-                case fields.Upload:
+                case indexGroups.Upload:
                     parseUpload(adsReq);
                     break;
-                case fields.SumRd:
+                case indexGroups.SumRd:
                     parseSumReadReq(adsReq);
                     break;
                 default:
@@ -2780,88 +2815,17 @@ TAME.WebServiceClient = function (service) {
         }
     };
     
-    function parseUploadInfo(adsReq) {
-        var response = adsReq.xmlHttpReq.responseXML.documentElement,
-        dataString, dataSubString, data, errorCode, adsReq2;
-        
-    
-        try {
 
-            dataString = decodeBase64(response.getElementsByTagName('ppData')[0].firstChild.data);
-           
-            dataSubString = dataString.substr(0, 4);
-            symbolCount = subStringToData(dataSubString, 'DWORD');
-
-            dataSubString = dataString.substr(4, 4);
-            uploadLength = subStringToData(dataSubString, 'DWORD');
-            
-            console.log('c: ' + symbolCount);           
-        } catch (e) {
-            try {
-                console.log('TAME library error: Parsing of UploadInfo failed:' + e);
-            } catch (e) {}
-            return;
-        }
-        
-        adsReq2 = {
-            method: 'Read',
-            indexGroup: fields.Upload,
-            indexOffset: 0,
-            reqDescr: {
-                readLength: uploadLength   
-            }
-        };
-        asyncRequest(adsReq2).send();
-        
     
-    }
-    
-    function parseUpload(adsReq) {
-        var response = adsReq.xmlHttpReq.responseXML.documentElement,
-        strAddr = 0,
-        dataString, dataSubString, data, errorCode, cnt, infoLen, info, name;
-        
-    
-        try {
-            dataString = decodeBase64(response.getElementsByTagName('ppData')[0].firstChild.data);
-            
-            for (cnt = 0; cnt < symbolCount; cnt++) {
-                //Get the length of the symbol information
-                dataSubString = dataString.substr(strAddr, 4);
-                infoLen = subStringToData(dataSubString, 'DWORD');
-                
-                info = dataString.substr(strAddr + 4, infoLen - 4);
-                
-                dataSubString = info.substr(strAddr + 26, infoLen - strAddr + 26);
-                name =  subStringToData(dataSubString, 'STRING');
-                
-                console.log(cnt);
-                console.log(info);
-                console.log(strAddr);
-                console.log(name);
-                console.log();
-                
-                symTable[name] = {};
-                
-                strAddr += infoLen;
-            }
-            
-             
-        } catch (e) {
-            try {
-                console.log('TAME library error: Parsing of uploaded symbol information failed:' + e);
-            } catch (e) {}
-            return;
-        }
-    
-    }
-    
+    /**
+     * Get the upload information. 
+     */
     this.getUploadInfo = function() {
         
         //Generate the ADS request object and call the send function.
         var adsReq = {
             method: 'Read',
-            indexGroup: fields.UploadInfo,
+            indexGroup: indexGroups.UploadInfo,
             indexOffset: 0,
             reqDescr: {
                 readLength: 8   
@@ -2869,11 +2833,66 @@ TAME.WebServiceClient = function (service) {
         };
         asyncRequest(adsReq).send();
     };
+
     
+    
+    /**
+     * Get the symbol-file (*.tpy) from the server and create
+     * an object (symTable) with the symbol names as the properties. 
+     */
+    this.getSymFile = function(symFileUrl) {
+        
+        if (typeof symFileUrl == 'string') {
+      
+            var xmlHttpReq = createXMLHttpReq(),
+            symbolXmlArray = [],
+            symFile, name, allSymbols;
+            
+            //Synchronous HTTPRequest
+            xmlHttpReq.open('GET', symFileUrl, false);
+            xmlHttpReq.setRequestHeader('Content-Type', 'text/xml');
+            xmlHttpReq.send(null);
+
+            if (typeof DOMParser == 'function') {
+                try {
+                    symFile = (new DOMParser()).parseFromString(xmlHttpReq.responseText, "text/xml");
+                    allSymbols = symFile.getElementsByTagName('Symbols')[0];
+                
+                    //Create an Array of the Elements with "Symbol" as tag name.
+                    symbolXmlArray = allSymbols.getElementsByTagName('Symbol');
+                    
+                    //Get the name of the symbol and create an object property with it.
+                    //symTable is declared outside in the constructor function.
+                    for (var i = 0; i < symbolXmlArray.length; i++) {
+                        name = symbolXmlArray[i].getElementsByTagName('Name')[0].childNodes[0].nodeValue.toUpperCase();
+                        symTable[name] = {
+                            type: symbolXmlArray[i].getElementsByTagName('Type')[0].childNodes[0].nodeValue.toUpperCase(),
+                            indexGroup: parseInt(symbolXmlArray[i].getElementsByTagName('IGroup')[0].childNodes[0].nodeValue, 10),
+                            indexOffset: parseInt(symbolXmlArray[i].getElementsByTagName('IOffset')[0].childNodes[0].nodeValue, 10),
+                            bitSize: parseInt(symbolXmlArray[i].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue, 10)
+                        };
+                        symTable[name].size = (symTable[name].bitSize >= 8) ? symTable[name].bitSize/8 : symTable[name].bitSize;
+                    }
+                } catch(e) {
+                    try {
+                    console.log('TAME library error: An error occured while parsing the symbol file:');
+                    console.log(e);
+                    } catch(e) {}
+                }
+            } else {
+                try {
+                    console.log('TAME library error: Can\'t parse the symbol file cause your brower does not provide a DOMParser function.');
+                } catch(e) {}
+            }
+        } else {
+            try {
+                console.log('TAME library warning: No URL for the symbol file defined. Access to variables by name is not possible.');
+            } catch(e) {}
+        }  
+    };   
 };
 
 
-    
 /**
  * Function for creating the Webservice Client.
  * 
