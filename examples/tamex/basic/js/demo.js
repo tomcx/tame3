@@ -10,10 +10,6 @@ var field1, field2, field5, field6, field7, field8, field9,
 
 
 window.onload = function() {
-    
-    //For testing:
-    //Log the symbol table to the console.
-    Plc.logSymbols();
   
     /*
      *  Examples for reading/writing on button click.
@@ -36,13 +32,13 @@ window.onload = function() {
     
     //Functions for writing/reading data
     var pollWert1 = function() {
-        Plc.readBool({name: '.In_BOOL1', jvar: 'field1.data'});
+        Plc.readBool({name: '.IN_BOOL1', jvar: 'field1.data'});
     };
     var pollWert2 = function() {
         Plc.readBool({addr: '%MX0.1', jvar: 'field2.data'});
     };
     var pollWert5 = function() {
-        Plc.readSint({name: '.In_SINT1', jvar: 'field5.data'});
+        Plc.readSint({name: '.IN_SINT1', jvar: 'field5.data'});
     };
     var pollWert6 = function() {
         Plc.readInt({addr: '%MB8', jvar: 'field6.data'});
@@ -75,7 +71,7 @@ window.onload = function() {
     //oc = on-complete, ocd = on-complete-delay (in ms)
     document.getElementById('button1').onclick = function() {
         var wert = document.getElementById('checkbox1').checked;
-        Plc.writeBool({name: '.In_BOOL1', val: wert, oc: pollWert1, ocd: 50});
+        Plc.writeBool({name: '.IN_BOOL1', val: wert, oc: pollWert1, ocd: 50});
     };
     document.getElementById('button2').onclick = function() {
         var wert = document.getElementById('checkbox2').checked;
@@ -83,7 +79,7 @@ window.onload = function() {
     };
     document.getElementById('button5').onclick = function() {
         var wert = document.getElementById('input1').value;
-        Plc.writeSint({name: '.In_SINT1', val: wert, oc: pollWert5, ocd: 50});
+        Plc.writeSint({name: '.IN_SINT1', val: wert, oc: pollWert5, ocd: 50});
     };
     document.getElementById('button6').onclick = function() {
         var wert = document.getElementById('input2').value;
@@ -176,6 +172,11 @@ window.onload = function() {
         window.setTimeout('pollZyk1()', 100); //Timeout 100 ms
     };
 
+var x;
+for (var i=0;i>0;i++) {
+    x += 1;
+}
+
     
     /*
      *  Start
@@ -196,4 +197,6 @@ window.onload = function() {
 
 };
 
-
+window.onbeforeunload = function() {
+    alert('unload');
+};

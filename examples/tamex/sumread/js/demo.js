@@ -13,7 +13,6 @@ var Demo = {
 window.onload = function() {
     
     //Get the symbols
-    Plc.readSymFile('../resources/demo.tpy');
     Plc.logSymbols();
     
     //I'm lazy, so I store the input/display fields in an array
@@ -36,9 +35,7 @@ window.onload = function() {
                 addr:  '%MB4',
                 jvar: 'Demo.displayFields[0].data',
                 type: 'SINT'
-            }
-            /*
-            ,{
+            },{
                 addr:  '%MB5',
                 jvar: 'Demo.displayFields[1].data',
                 type: 'SINT'
@@ -50,8 +47,29 @@ window.onload = function() {
                 addr:  '%MB7',
                 jvar: 'Demo.displayFields[3].data',
                 type: 'SINT'
-            }*/
-            ]
+            },{
+                addr:  '%MB8',
+                jvar: 'Demo.displayFields[4].data',
+                type: 'INT'
+            },{
+                addr:  '%MB10',
+                jvar: 'Demo.displayFields[5].data',
+                type: 'INT'
+            },{
+                addr:  '%MB12',
+                jvar: 'Demo.displayFields[6].data',
+                type: 'DINT'
+            },{
+                addr:  '%MB16',
+                jvar: 'Demo.displayFields[7].data',
+                type: 'STRING.11'
+            },{
+                jvar: 'Demo.displayFields[8].data',
+                type: 'TIME.#m'
+            },{
+                jvar: 'Demo.displayFields[9].data',
+                type: 'REAL.2'
+            }]
         });
     };
     
