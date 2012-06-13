@@ -44,6 +44,7 @@ var TAME = {
 TAME.WebServiceClient = function (service) {
 
 
+
     //======================================================================================
     //                                Initialize Variables
     //======================================================================================
@@ -166,9 +167,6 @@ TAME.WebServiceClient = function (service) {
     
     
     
-    
-
-
     
     //======================================================================================
     //                                Initialize Properties
@@ -608,6 +606,8 @@ TAME.WebServiceClient = function (service) {
         return bytes;
         
     } 
+
+
 
     //======================================================================================
     //                                  Decoder Functions
@@ -1294,7 +1294,8 @@ TAME.WebServiceClient = function (service) {
                     try {
                         console.log('TAME library error: ADS sub command error while processing a SumReadRequest!');
                         console.log('Error code: ' + errorCode);
-                        console.log('Item address: ' + itemList[idx].addr);
+                        console.log(itemList[idx]);
+   
                     } catch (e) {}
                 }
                 
@@ -1319,11 +1320,11 @@ TAME.WebServiceClient = function (service) {
                 //Get the length of the data types.
                 len = plcTypeLen[type[0]];
                 
-                if (type[0] === 'STRING') {
+                if (type[0] == 'STRING') {
                     if (typeof format == 'string') {
                         strlen = parseInt(format, 10);
                     }
-                    len = (isValidStringLen(strlen) ? strlen : len) + 1;             
+                    len = (isValidStringLen(strlen) ? strlen : len) + 1;
                 }
                 
                 console.log(strAddr + '; ' + type[0]);
@@ -1349,9 +1350,7 @@ TAME.WebServiceClient = function (service) {
         }
     }
     
-    
 
-    
     
     //======================================================================================
     //                                 Helper Functions
@@ -1435,6 +1434,7 @@ TAME.WebServiceClient = function (service) {
         }
     }
     
+    
     /**
      * Check if a passed string length is valid.
      * 
@@ -1453,6 +1453,7 @@ TAME.WebServiceClient = function (service) {
             return false;
         } 
     }
+    
     
     /**
      * The function returns the IndexGroup for a PLC variable address.
@@ -1597,6 +1598,7 @@ TAME.WebServiceClient = function (service) {
         return indexOffset;  
     }
     
+    
     /**
      * This function creates an XMLHttpRequest object. 
      */
@@ -1625,12 +1627,19 @@ TAME.WebServiceClient = function (service) {
         return xmlHttpReq;
     }    
     
+    
     /**
      * Create the objects for SOAP and XMLHttpRequest and send the request.
      * 
      * @param {Object} adsReq   The object containing the arguments of the ADS request.
      */
     function createRequest(adsReq) {
+        
+        if (adsReq.reqDescr.debug) {
+            try {
+                console.log(adsReq);
+            } catch(e) {}
+        }
         
         adsReq.send = function() {
             
@@ -1721,6 +1730,7 @@ TAME.WebServiceClient = function (service) {
         };
         return adsReq;
     }
+    
     
     /**
      * Function for checking the input values when writing numeric PLC variables.
@@ -1835,7 +1845,8 @@ TAME.WebServiceClient = function (service) {
         
         return val;
     }
-     
+    
+    
     
     //======================================================================================
     //                     Functions for Creating Request Descriptors
@@ -1911,6 +1922,7 @@ TAME.WebServiceClient = function (service) {
             instance.readReq(reqDescr);
         }
     }
+
 
     /**
      * Create a Request Descriptor for an array. An item list of
@@ -2215,6 +2227,7 @@ TAME.WebServiceClient = function (service) {
         }
     }
     
+    
     /**
      * Create a Request Descriptor for a structure,
      * a structure definition has to be passed as one of the arguments,
@@ -2327,7 +2340,6 @@ TAME.WebServiceClient = function (service) {
         }
     }
     
-    
 
     
     //======================================================================================
@@ -2352,17 +2364,7 @@ TAME.WebServiceClient = function (service) {
             bytes= [],
             listlen, len, val, pcount, mod, item, i, idx;
         
-        //Parse the request address, create IndexGroup/IndexOffset and append them
-        //to the request descriptor.
-        //parseAddr(reqDescr);
-        
-        //Debug: Log the Request Descriptor to the console.
-        if (reqDescr.debug) {
-            try {
-                console.log(reqDescr);
-            } catch(e) {}
-        }
-        
+
         //Run through the elements in the item list.
         for (idx = 0, listlen = itemList.length; idx < listlen; idx++) {
 
@@ -2438,16 +2440,6 @@ TAME.WebServiceClient = function (service) {
             type = [],
             listlen, mod, vlen, strlen, idx;
 
-        //Parse the request address and create IndexGroup/IndexOffset.
-        //parseAddr(reqDescr);
-        
-        //Debug: Log the Request Descriptor to the console.
-        if (reqDescr.debug) {
-            try {
-                console.log(reqDescr);
-            } catch(e) {}
-        }
-
         //Calculate the data length if no argument is given.
         if (typeof reqDescr.readLength != 'number') {
             
@@ -2520,17 +2512,6 @@ TAME.WebServiceClient = function (service) {
             
             item = itemList[idx];
             
-            //Parse the address of the item and add IndexGroup and Offset to
-            //the item.
-            //parseAddr(item);
-            
-            //Debug: Log the Request Descriptor to the console.
-            if (reqDescr.debug) {
-                try {
-                    console.log(reqDescr);
-                } catch(e) {}
-            }
-        
             //Separate type and formatting string.
             if (item.type !== undefined) {
                 type = item.type.split('.');
@@ -2562,20 +2543,11 @@ TAME.WebServiceClient = function (service) {
             reqBuffer = reqBuffer.concat(bytes);
             
         }
-        
-        
+              
         //Convert the request buffer to Base64 coded data.
         if (reqBuffer.length > 0) {
             pwrData = encodeBase64(reqBuffer);
         }   
-        
-        
-        console.log(reqBuffer);
-        console.log(pwrData);
-        
-        //Set IndexGroup and Offset for the request    
-        //reqDescr.IndexGroup = indexGroups.SumRd;
-        //reqDescr.IndexOffset = itemList.length;
         
         //Generate the ADS request object and call the send function.
         adsReq = {
@@ -2586,7 +2558,6 @@ TAME.WebServiceClient = function (service) {
             reqDescr: reqDescr
         };
         createRequest(adsReq).send();
-            
     };
     
 
@@ -2685,8 +2656,6 @@ TAME.WebServiceClient = function (service) {
     this.readArrayOfDate = function(args) { createArrayDescriptor('Read', 'DATE', args); };
     this.readArrayOfDt = function(args) { createArrayDescriptor('Read', 'DT', args); };
     this.readArrayOfStruct = function(args) { createArrayDescriptor('Read', 'STRUCT', args); };
-    
-    
        
     
     /**
@@ -2812,8 +2781,6 @@ TAME.WebServiceClient = function (service) {
             }
         };
         createRequest(adsReq2).send();
-        
-    
     }
     
     

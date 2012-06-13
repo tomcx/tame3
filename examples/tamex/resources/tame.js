@@ -1294,7 +1294,8 @@ TAME.WebServiceClient = function (service) {
                     try {
                         console.log('TAME library error: ADS sub command error while processing a SumReadRequest!');
                         console.log('Error code: ' + errorCode);
-                        console.log('Item address: ' + itemList[idx].addr);
+                        console.log(itemList[idx]);
+   
                     } catch (e) {}
                 }
                 
@@ -1631,6 +1632,12 @@ TAME.WebServiceClient = function (service) {
      * @param {Object} adsReq   The object containing the arguments of the ADS request.
      */
     function createRequest(adsReq) {
+        
+        if (adsReq.reqDescr.debug) {
+            try {
+                console.log(adsReq);
+            } catch(e) {}
+        }
         
         adsReq.send = function() {
             
@@ -2357,12 +2364,13 @@ TAME.WebServiceClient = function (service) {
         //parseAddr(reqDescr);
         
         //Debug: Log the Request Descriptor to the console.
+/*
         if (reqDescr.debug) {
             try {
                 console.log(reqDescr);
             } catch(e) {}
         }
-        
+*/       
         //Run through the elements in the item list.
         for (idx = 0, listlen = itemList.length; idx < listlen; idx++) {
 
@@ -2441,13 +2449,14 @@ TAME.WebServiceClient = function (service) {
         //Parse the request address and create IndexGroup/IndexOffset.
         //parseAddr(reqDescr);
         
+/*
         //Debug: Log the Request Descriptor to the console.
         if (reqDescr.debug) {
             try {
                 console.log(reqDescr);
             } catch(e) {}
         }
-
+*/
         //Calculate the data length if no argument is given.
         if (typeof reqDescr.readLength != 'number') {
             
@@ -2525,12 +2534,13 @@ TAME.WebServiceClient = function (service) {
             //parseAddr(item);
             
             //Debug: Log the Request Descriptor to the console.
+/*            
             if (reqDescr.debug) {
                 try {
                     console.log(reqDescr);
                 } catch(e) {}
             }
-        
+*/      
             //Separate type and formatting string.
             if (item.type !== undefined) {
                 type = item.type.split('.');

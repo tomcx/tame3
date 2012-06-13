@@ -31,12 +31,13 @@ window.onload = function() {
     //follow one another in a direct sequence.
     button1.onclick = function(){
         Plc.sumReadReq({
+            debug: true,
             items: [{
-                addr:  '%MB4',
+                name:  '.IN_SINT1',
                 jvar: 'Demo.displayFields[0].data',
                 type: 'SINT'
             },{
-                addr:  '%MB5',
+                name:  '.IN_SINT2',
                 jvar: 'Demo.displayFields[1].data',
                 type: 'SINT'
             },{
@@ -63,12 +64,6 @@ window.onload = function() {
                 addr:  '%MB16',
                 jvar: 'Demo.displayFields[7].data',
                 type: 'STRING.11'
-            },{
-                jvar: 'Demo.displayFields[8].data',
-                type: 'TIME.#m'
-            },{
-                jvar: 'Demo.displayFields[9].data',
-                type: 'REAL.2'
             }]
         });
     };
