@@ -44,6 +44,7 @@ var TAME = {
 TAME.WebServiceClient = function (service) {
 
 
+
     //======================================================================================
     //                                Initialize Variables
     //======================================================================================
@@ -123,6 +124,7 @@ TAME.WebServiceClient = function (service) {
         
         //The Symbol Table for accessing variables per name.
         symTable = {},
+        symTableOk = false,
         
         //Variables of the UploadInfo 
         symbolCount = 0, uploadLength = 0,
@@ -166,9 +168,6 @@ TAME.WebServiceClient = function (service) {
     
     
     
-    
-
-
     
     //======================================================================================
     //                                Initialize Properties
@@ -413,18 +412,19 @@ TAME.WebServiceClient = function (service) {
      * Function for converting the data values to a byte array.
      * 
      * @param {Object} item     An item of the item list of a request descriptor.
-     * @param {Array} type      Contains the data type (type[0]) and the formatting string if used.
+     * @param {String} type     Contains the data type
+     * @param {String} format   The formatting string.
      * @param {Number} len      Data length.
      * @return {Array} bytes    An array containing the data as byte values.
      */
-    function dataToByteArray(item, type, len) {
+    function dataToByteArray(item, type, format, len) {
         
         var bytes = [],
             val, strlen, sl, i;
         
         //If no value is passed, set value to zero and log an error message.
         if (item.val === undefined) {
-            switch (type[0]) {
+            switch (type) {
                 case 'STRING':
                     item.val = '';
                     break;
@@ -444,7 +444,7 @@ TAME.WebServiceClient = function (service) {
         }
         
         //Depending on the data type, convert the values to a byte array.
-        switch (type[0] ) {
+        switch (type) {
             case 'BOOL':
                 if (item.val) {
                     bytes[0] = 1;
@@ -454,11 +454,11 @@ TAME.WebServiceClient = function (service) {
                 break;
             case 'BYTE':
             case 'USINT':
-                val = checkValue(item, type[0], 0, 255);
+                val = checkValue(item, type, 0, 255);
                 bytes = numToByteArr(val, len);
                 break;
             case 'SINT':
-                val = checkValue(item, type[0], -128, 127);
+                val = checkValue(item, type, -128, 127);
                 if (val < 0) {
                     val = val + 256;
                 }
@@ -466,11 +466,11 @@ TAME.WebServiceClient = function (service) {
                 break;
             case 'WORD':
             case 'UINT':                
-                val = checkValue(item, type[0], 0, 65535);
+                val = checkValue(item, type, 0, 65535);
                 bytes = numToByteArr(val, len);
                 break;
             case 'INT':                
-                val = checkValue(item, type[0], -32768, 32767);
+                val = checkValue(item, type, -32768, 32767);
                 if (val < 0) {
                     val = val + 65536;
                 }
@@ -478,7 +478,7 @@ TAME.WebServiceClient = function (service) {
                 break;
             case 'INT1DP':
                 item.val = Math.round(item.val * 10);
-                val = checkValue(item, type[0], -32768, 32767);
+                val = checkValue(item, type, -32768, 32767);
                 if (val < 0) {
                     val = val + 65536;
                 }
@@ -486,23 +486,23 @@ TAME.WebServiceClient = function (service) {
                 break;
             case 'DWORD':
             case 'UDINT':   
-                val = checkValue(item, type[0], 0, 4294967295);
+                val = checkValue(item, type, 0, 4294967295);
                 bytes = numToByteArr(val, len);
                 break;
             case 'DINT':                
-                val = checkValue(item, type[0], -2147483648, 2147483647);
+                val = checkValue(item, type, -2147483648, 2147483647);
                 if (val < 0) {
                     val = val + 4294967296;
                 }
                 bytes = numToByteArr(val, len);
                 break;
             case 'REAL':
-                val = checkValue(item, type[0]);
+                val = checkValue(item, type);
                 val = floatToReal(val);
                 bytes = numToByteArr(val, len);
                 break;
             case 'LREAL':
-                val = checkValue(item, type[0]);
+                val = checkValue(item, type);
                 val = floatToLreal(val);
                 bytes = numToByteArr(val.part2, len);
                 bytes = bytes.concat(numToByteArr(val.part1, len));
@@ -556,7 +556,7 @@ TAME.WebServiceClient = function (service) {
                 break;
             case 'STRING':
                 //If no length is given, set it to 80 characters (TwinCAT default).                 
-                strlen = (type[1] === undefined) ? plcTypeLen.STRING : parseInt(type[1],10);
+                strlen = (format === undefined) ? plcTypeLen.STRING : parseInt(format,10);
 
                 if (isValidStringLen(strlen)) {
                     //If the given string length is valid and shorter then the string
@@ -577,19 +577,19 @@ TAME.WebServiceClient = function (service) {
                 break;
             case 'TIME':
                 val = item.val * 1;
-                val = toMillisec(val, type[1]);
+                val = toMillisec(val, format);
                 if (val < 0) {
                     val = 0;
                     try {
                         console.log('TAME library warning: Lower limit for TIME variable exceeded!)');
-                        console.log('value: ' + item.val + type[1]);
+                        console.log('value: ' + item.val + format);
                         console.log(item);
                     } catch(e) {}
                 } else if (val > 4294967295) {
                     val = 4294967295;
                     try {
                         console.log('TAME library warning: Upper limit for TIME variable exceeded!)');
-                        console.log('value: ' + item.val + type[1]);
+                        console.log('value: ' + item.val + format);
                         console.log(item);
                     } catch(e) {}
                 }
@@ -600,7 +600,7 @@ TAME.WebServiceClient = function (service) {
                 break;
             default:
                 try {
-                    console.log('TAME library error: Unknown data type in write request : ' + type[0]);
+                    console.log('TAME library error: Unknown data type in write request : ' + type);
                 } catch (e) {}
                 break;
         }
@@ -608,6 +608,8 @@ TAME.WebServiceClient = function (service) {
         return bytes;
         
     } 
+
+
 
     //======================================================================================
     //                                  Decoder Functions
@@ -1187,9 +1189,9 @@ TAME.WebServiceClient = function (service) {
         
         var response = adsReq.xmlHttpReq.responseXML.documentElement,
         itemList = adsReq.reqDescr.items,
-        type = [],
+        arrType = [],
         strAddr = 0,
-        dataString, dataSubString, data, strlen, len, plen, mod, format, idx, listlen;
+        item, dataString, dataSubString, data, strlen, len, plen, mod, type, format, idx, listlen;
         
     
         try {
@@ -1199,21 +1201,17 @@ TAME.WebServiceClient = function (service) {
             //Run through the elements in the item list.
             for (idx = 0, listlen = itemList.length; idx < listlen; idx++) {
                 
-                //Split data type and formatting string.
-                type.length = 1;
-                type = itemList[idx].type.split('.');
+                item = itemList[idx];
                 
-                //Join the formatting string if there were points in it.
-                if (type.length > 2) {
-                    format = type.slice(1).join('.');
-                } else {
-                    format = type[1];
-                }
+                //Get type and formatting string.
+                arrType = getTypeAndFormat(item);
+                type = arrType[0];
+                format = arrType[1];
                 
                 //Get the length of the data types.
-                len = plcTypeLen[type[0]];
+                len = plcTypeLen[type];
                 
-                switch (type[0]) {
+                switch (type) {
                     case 'STRING':
                         if (typeof format == 'string') {
                             strlen = parseInt(format, 10);
@@ -1223,7 +1221,7 @@ TAME.WebServiceClient = function (service) {
                     case 'EndStruct':
                         //Set the length of the padding bytes at the end of the structure
                         //"EndStruct" is only used with "readArrayOfStructures/writeArrayOfStructures".
-                        len = itemList[idx].val;
+                        len = item.val;
                         break;
                 }
                 
@@ -1233,23 +1231,23 @@ TAME.WebServiceClient = function (service) {
                 //Calculate the place of the element in the data string
                 if (adsReq.reqDescr.seq !== true) {
                     //If variable addresses are used.
-                    strAddr = itemList[idx].addr - adsReq.reqDescr.addr;
-                } else if (adsReq.reqDescr.dataAlign4 === true && plen > 1 && type[0] != 'STRING' && strAddr > 0) {
+                    strAddr = item.addr - adsReq.reqDescr.addr;
+                } else if (adsReq.reqDescr.dataAlign4 === true && plen > 1 && type != 'STRING' && strAddr > 0) {
                     //Compute the address for a 4-byte alignment in case of a structure.
                     mod = strAddr % plen;
                     if (mod > 0) {
                         strAddr += plen - mod;
                     }
                 }
-                //console.log(strAddr + '; ' + type[0]);
+                //console.log(strAddr + '; ' + type);
                 
                 //Slice the string and decode the data
                 dataSubString = dataString.substr(strAddr, len);
-                data = subStringToData(dataSubString, type[0], format);
+                data = subStringToData(dataSubString, type, format);
                 
                 //Parse the name of the JavaScript variable and write the data to it
-                if (type[0] !== 'EndStruct') {
-                    parseVarName(itemList[idx].jvar, data, adsReq.reqDescr.dataObj, itemList[idx].prefix, itemList[idx].suffix);
+                if (type !== 'EndStruct') {
+                    parseVarName(item.jvar, data, adsReq.reqDescr.dataObj, item.prefix, item.suffix);
                 }
                 
                 //Set the next address
@@ -1260,7 +1258,7 @@ TAME.WebServiceClient = function (service) {
         } catch (e) {
             try {
                 console.log('TAME library error: Parsing Failed:' + e);
-                    console.log(itemList[idx]);
+                    console.log(item);
             } catch (e) {}
             return;
         }
@@ -1275,9 +1273,9 @@ TAME.WebServiceClient = function (service) {
         
         var response = adsReq.xmlHttpReq.responseXML.documentElement,
         itemList = adsReq.reqDescr.items,
-        type = [],
+        arrType = [],
         strAddr = 0,
-        dataString, dataSubString, data, strlen, len, format, idx, listlen, errorCode;
+        item, dataString, dataSubString, data, strlen, len, type, format, idx, listlen, errorCode;
         
     
         try {
@@ -1306,36 +1304,32 @@ TAME.WebServiceClient = function (service) {
             //Run through the elements in the item list.
             for (idx = 0; idx < listlen; idx++) {
                 
-                //Split data type and formatting string.
-                type.length = 1;
-                type = itemList[idx].type.split('.');
+                item = itemList[idx];
                 
-                //Join the formatting string if there were points in it.
-                if (type.length > 2) {
-                    format = type.slice(1).join('.');
-                } else {
-                    format = type[1];
-                }
+                //Get type and formatting string.
+                arrType = getTypeAndFormat(item);
+                type = arrType[0];
+                format = arrType[1];
                 
                 //Get the length of the data types.
-                len = plcTypeLen[type[0]];
+                len = plcTypeLen[type];
                 
-                if (type[0] === 'STRING') {
+                if (type == 'STRING') {
                     if (typeof format == 'string') {
                         strlen = parseInt(format, 10);
                     }
-                    len = (isValidStringLen(strlen) ? strlen : len) + 1;             
+                    len = (isValidStringLen(strlen) ? strlen : len) + 1;
                 }
                 
-                console.log(strAddr + '; ' + type[0]);
+                console.log(strAddr + '; ' + type);
                 
                 //Slice the string and decode the data
                 dataSubString = dataString.substr(strAddr, len);
-                data = subStringToData(dataSubString, type[0], format);
+                data = subStringToData(dataSubString, type, format);
                 console.log(data);
                 
                 //Parse the name of the JavaScript variable and write the data to it
-                parseVarName(itemList[idx].jvar, data, adsReq.reqDescr.dataObj, itemList[idx].prefix, itemList[idx].suffix);
+                parseVarName(item.jvar, data, adsReq.reqDescr.dataObj, item.prefix, item.suffix);
 
                 //Set the next string address
                 strAddr += len;
@@ -1344,15 +1338,13 @@ TAME.WebServiceClient = function (service) {
         } catch (e) {
             try {
                 console.log('TAME library error: Parsing Failed:' + e);
-                    console.log(itemList[idx]);
+                    console.log(item);
             } catch (e) {}
             return;
         }
     }
     
-    
 
-    
     
     //======================================================================================
     //                                 Helper Functions
@@ -1436,6 +1428,7 @@ TAME.WebServiceClient = function (service) {
         }
     }
     
+    
     /**
      * Check if a passed string length is valid.
      * 
@@ -1454,6 +1447,7 @@ TAME.WebServiceClient = function (service) {
             return false;
         } 
     }
+    
     
     /**
      * The function returns the IndexGroup for a PLC variable address.
@@ -1543,7 +1537,7 @@ TAME.WebServiceClient = function (service) {
                     indexOffset = parseInt(req.addr.substr(3), 10);
                     //Address offset is used if only one item of an array
                     //should be sent.
-                    if (typeof req.addrOffset == 'Number') {
+                    if (typeof req.addrOffset == 'number') {
                         indexOffset += req.addrOffset;
                     }
                 }
@@ -1561,7 +1555,7 @@ TAME.WebServiceClient = function (service) {
                     indexOffset = symTable[req.name].indexOffset;
                     //Address offset is used if only one item of an array
                     //should be sent.
-                    if (typeof req.addrOffset == 'Number') {
+                    if (typeof req.addrOffset == 'number') {
                         indexOffset += req.addrOffset;
                     }
                 } catch(e) {
@@ -1598,6 +1592,7 @@ TAME.WebServiceClient = function (service) {
         return indexOffset;  
     }
     
+    
     /**
      * This function creates an XMLHttpRequest object. 
      */
@@ -1625,6 +1620,7 @@ TAME.WebServiceClient = function (service) {
         }
         return xmlHttpReq;
     }    
+    
     
     /**
      * Create the objects for SOAP and XMLHttpRequest and send the request.
@@ -1677,13 +1673,13 @@ TAME.WebServiceClient = function (service) {
             soapReq += this.indexOffset;
             soapReq += '</indexOffset>';
     
-            if (this.reqDescr.readLength > 0) {
+            if ((this.method === 'Read' || this.method === 'ReadWrite') && this.reqDescr.readLength > 0) {
                 soapReq += '<cbRdLen xsi:type=\'xsd:int\'>';
                 soapReq += this.reqDescr.readLength;
                 soapReq += '</cbRdLen>';
             }
             if (this.pData && this.pData.length > 0) {
-                soapReq += '<pData xsi:type=\'xsd:base64Binary\>';
+                soapReq += '<pData xsi:type=\'xsd:base64Binary\'>';
                 soapReq += this.pData;
                 soapReq += '</pData>';
             }
@@ -1728,6 +1724,7 @@ TAME.WebServiceClient = function (service) {
         };
         return adsReq;
     }
+    
     
     /**
      * Function for checking the input values when writing numeric PLC variables.
@@ -1842,7 +1839,28 @@ TAME.WebServiceClient = function (service) {
         
         return val;
     }
-     
+    
+
+    function getTypeAndFormat(item) {
+        var arr = [];
+        if (typeof item.type == 'string') {
+            //Type is defined
+            arr = item.type.split('.');
+            if (arr.length > 2) {
+                //Join the formatting string if there were points in it.
+                arr[1] = arr.slice(1).join('.');
+            } 
+        } else if (symTableOk && typeof item.name == 'string'){
+            //Try to get the type
+            arr = symTable[item.name].type.split('(');
+        } else {
+            try {
+                console.log('TAME library error: Could not get the type of the item!');
+                console.log(item);
+            } catch(e){}
+        }
+        return arr;
+    }
     
     //======================================================================================
     //                     Functions for Creating Request Descriptors
@@ -1859,9 +1877,15 @@ TAME.WebServiceClient = function (service) {
     function createSingleDescriptor(method,type,args) {
         
         var reqDescr = {},
+            arrSymType,
             len;
 
         len = plcTypeLen[type];
+        
+        //Set the variable name to upper case.
+        if (typeof args.name == 'string') { 
+            args.name = args.name.toUpperCase();
+        }
         
         switch (type) {
             case 'STRING':
@@ -1869,6 +1893,17 @@ TAME.WebServiceClient = function (service) {
                 if (isValidStringLen(args.strlen)) {
                     type += '.' + args.strlen;
                     len = args.strlen;
+                } else if (symTableOk === true) {
+                    //Get the string length from the symbol table.
+                    try {
+                        len = symTable[args.name].type.split('(')[1];
+                        type += '.' + len;   
+                    } catch(e) {
+                        try {
+                            console.log('TAME library error: A problem occured while reading the string length from the symbol table!');
+                            console.log(e);
+                        } catch(e){}
+                    }
                 }
                 len++; //Termination
                 break;
@@ -1919,6 +1954,7 @@ TAME.WebServiceClient = function (service) {
         }
     }
 
+
     /**
      * Create a Request Descriptor for an array. An item list of
      * single variables is generated.
@@ -1948,25 +1984,51 @@ TAME.WebServiceClient = function (service) {
             mod,
             elem,
             addr,
-            wrtOneOnly;
+            wrtOneOnly,
+            arrSymType;
+        
+        
+        //Set the variable name to upper case.
+        if (typeof args.name == 'string') { 
+            args.name = args.name.toUpperCase();
+        }
         
         //Get the object of the stored data, direct with 'val'
         //for a write request or parsing the name if 'jvar' is given.
         if (method === 'Write' && typeof args.val == 'object') {
             dataObj = args.val;
-            arrayLength = args.val.length;
+            //arrayLength = args.val.length;
         } else if (typeof args.jvar == 'string') {
             dataObj = parseVarName(args.jvar);
-            arrayLength = parseVarName(args.jvar).length;
+            //arrayLength = parseVarName(args.jvar).length;
         } else {
             try {
                 console.log('TAME library error: No data object for this ' + method + '-Request defined!');
             } catch(e){}
         }
         
-        //Override array length if manually set
+
         if (typeof args.arrlen == 'number') {
+            //Override array length if manually set
             arrayLength = args.arrlen;
+        } else if (symTableOk === true) {
+            //Get the array length from the symbol table.
+            try {
+                arrSymType = symTable[args.name].type.split(" ");
+                arrayLength = arrSymType[1].substring(1, arrSymType[1].length - 1);
+                arrayLength = arrayLength.split('..');
+                arrayLength = parseInt(arrayLength[1], 10) - parseInt(arrayLength[0], 10) + 1;
+            } catch(e) {
+                try {
+                    console.log('TAME library error: A proble occured while reading the array length from the symbol table!');
+                    console.log(e);
+                } catch(e){}
+            }
+        } else {
+            try {
+                console.log('TAME library error: Can\'t get the array length for this request!');
+                console.log(e);
+            } catch(e){}
         }
         
         //Check if only one item should be written.
@@ -2147,10 +2209,14 @@ TAME.WebServiceClient = function (service) {
                       
             switch (type) {
                 case 'STRING':
-                    //Change the read length if a value is given.
                     if (isValidStringLen(args.strlen)) {
+                        //Change the read length if a value is given.
                         type += '.' + args.strlen;
                         len = args.strlen;
+                    } else if (symTableOk === true) {
+                        //Get the lenth from the symbol table.
+                        len = parseInt(arrSymType[3].substring(7, arrSymType[3].length - 1), 10);
+                        type += '.' + len;
                     }
                     len++; //Termination
                     break;
@@ -2222,6 +2288,7 @@ TAME.WebServiceClient = function (service) {
         }
     }
     
+    
     /**
      * Create a Request Descriptor for a structure,
      * a structure definition has to be passed as one of the arguments,
@@ -2240,6 +2307,11 @@ TAME.WebServiceClient = function (service) {
             lenArrElem,
             elem,
             j;
+        
+        //Set the variable name to upper case.
+        if (typeof args.name == 'string') { 
+            args.name = args.name.toUpperCase();
+        }
         
         //Get the object of the stored data, direct with 'val'
         //for a write request or parsing the name if 'jvar' is given.
@@ -2334,7 +2406,6 @@ TAME.WebServiceClient = function (service) {
         }
     }
     
-    
 
     
     //======================================================================================
@@ -2355,40 +2426,34 @@ TAME.WebServiceClient = function (service) {
         var itemList = reqDescr.items,
             adsReq = {},
             pData = [],
-            type = [],
+            arrType = [],
             bytes= [],
-            listlen, len, val, pcount, mod, item, i, idx;
+            type, format, listlen, len, val, pcount, mod, item, i, idx;
         
-        //Parse the request address, create IndexGroup/IndexOffset and append them
-        //to the request descriptor.
-        //parseAddr(reqDescr);
-        
-        //Debug: Log the Request Descriptor to the console.
-/*
-        if (reqDescr.debug) {
-            try {
-                console.log(reqDescr);
-            } catch(e) {}
+        //Set the variable name to upper case.
+        if (typeof reqDescr.name == 'string') { 
+            reqDescr.name = reqDescr.name.toUpperCase();
         }
-*/       
+        
         //Run through the elements in the item list.
         for (idx = 0, listlen = itemList.length; idx < listlen; idx++) {
 
             item = itemList[idx];
             
-            //Separate type and formatting string.
-            if (item.type !== undefined) {
-                type = item.type.split('.');
-            }
+            //Get type and formatting string.
+            arrType = getTypeAndFormat(item);
+            type = arrType[0];
+            format = arrType[1];
+            
             //Length of the data type.
             //Maximum lenght is limited to 4 (due to structure padding),
             //the lenght of strings is calculated later.
-            len = (plcTypeLen[type[0]] < 4) ? plcTypeLen[type[0]] : 4;
+            len = (plcTypeLen[type] < 4) ? plcTypeLen[type] : 4;
             
             //4-byte padding within structures.
             //reqDescr.dataAlign4 is only set in "writeStruct/readStruct" and
             //"writeArrayOfStruct/readArrayOfStruct"
-            if (reqDescr.dataAlign4 === true && len > 1 && type[0] != 'STRING' && pData.length > 0) {
+            if (reqDescr.dataAlign4 === true && len > 1 && type != 'STRING' && pData.length > 0) {
                 mod = pData.length % len;
                 if (mod > 0) {
                     pcount = len - mod;
@@ -2399,7 +2464,7 @@ TAME.WebServiceClient = function (service) {
             }
             
             //Convert data, depending on the type
-            if (type[0] === 'EndStruct') {
+            if (type === 'EndStruct') {
                 //Calculate the padding bytes at the end of the structure
                 //"EndStruct" is only used with "readArrayOfStructures/writeArrayOfStructures".
                 for (i = 1; i <= item.val; i++) {
@@ -2407,7 +2472,7 @@ TAME.WebServiceClient = function (service) {
                 }
             } else {
                 //Convert the data to a byte array.
-                bytes = dataToByteArray(item, type, len);
+                bytes = dataToByteArray(item, type, format, len);
                 //Summarise the data.     
                 pData = pData.concat(bytes);
             }
@@ -2443,20 +2508,14 @@ TAME.WebServiceClient = function (service) {
              
         var adsReq = {},
             itemList = reqDescr.items,
-            type = [],
-            listlen, mod, vlen, strlen, idx;
-
-        //Parse the request address and create IndexGroup/IndexOffset.
-        //parseAddr(reqDescr);
-        
-/*
-        //Debug: Log the Request Descriptor to the console.
-        if (reqDescr.debug) {
-            try {
-                console.log(reqDescr);
-            } catch(e) {}
+            arrType = [],
+            item, format, type, listlen, mod, vlen, strlen, idx;
+            
+        //Set the variable name to upper case.
+        if (typeof reqDescr.name == 'string') { 
+            reqDescr.name = reqDescr.name.toUpperCase();
         }
-*/
+
         //Calculate the data length if no argument is given.
         if (typeof reqDescr.readLength != 'number') {
             
@@ -2464,22 +2523,26 @@ TAME.WebServiceClient = function (service) {
 
             for (idx = 0, listlen = itemList.length; idx < listlen; idx++) {
                 
-                //Separate data type and length.
-                type = itemList[idx].type.split('.');
+                item = itemList[idx];
+            
+                //Get type and formatting string.
+                arrType = getTypeAndFormat(item);
+                type = arrType[0];
+                format = arrType[1];
 
                 //Set the length of the PLC variable.
-                if (type[0] == 'STRING') { 
-                    if (typeof type[1] == 'string') {
-                        strlen = parseInt(type[1], 10);
+                if (type == 'STRING') { 
+                    if (typeof format == 'string') {
+                        strlen = parseInt(format, 10);
                     }
-                    vlen = (isValidStringLen(strlen) ?  strlen : plcTypeLen[type[0]]) + 1;
+                    vlen = (isValidStringLen(strlen) ?  strlen : plcTypeLen[type]) + 1;
                 } else {
-                    vlen = plcTypeLen[type[0]];
+                    vlen = plcTypeLen[type];
                 }
                 
                 if (reqDescr.seq === true) {
                     //Add the length of the PLC variables if continuously addressing is used.
-                    if (reqDescr.dataAlign4 === true && vlen > 1 && type[0] != 'STRING' && reqDescr.readLength > 0) {
+                    if (reqDescr.dataAlign4 === true && vlen > 1 && type != 'STRING' && reqDescr.readLength > 0) {
                         mod = reqDescr.readLength % vlen;
                         if (mod > 0) {
                             reqDescr.readLength += vlen - mod;
@@ -2488,7 +2551,7 @@ TAME.WebServiceClient = function (service) {
                     reqDescr.readLength += vlen;
                 } else {
                     //Last element if single addresses are given.
-                    reqDescr.readLength = vlen + itemList[idx].addr - reqDescr.addr;
+                    reqDescr.readLength = vlen + item.addr - reqDescr.addr;
                 }
             }
         }
@@ -2514,14 +2577,15 @@ TAME.WebServiceClient = function (service) {
     this.sumReadReq = function(reqDescr) {
         var adsReq = {},
             itemList = reqDescr.items,
-            type = [],
+            arrType = [],
             reqBuffer = [],
             bytes = [],
             bIdx = 0,
             listlen  = itemList.length,
             dummy = {},
-            item, idx, len, pwrData;
-            
+            type, format, item, idx, len, pwrData;
+                 
+        //Preset the read lenth with the number of byte for error codes.
         reqDescr.readLength = listlen * 4;
         
         //Build the Request Buffer
@@ -2529,63 +2593,48 @@ TAME.WebServiceClient = function (service) {
             
             item = itemList[idx];
             
-            //Parse the address of the item and add IndexGroup and Offset to
-            //the item.
-            //parseAddr(item);
+            //Set the variable name to upper case.
+            if (typeof item.name == 'string') { 
+                item.name = item.name.toUpperCase();
+            }
             
-            //Debug: Log the Request Descriptor to the console.
-/*            
-            if (reqDescr.debug) {
-                try {
-                    console.log(reqDescr);
-                } catch(e) {}
-            }
-*/      
-            //Separate type and formatting string.
-            if (item.type !== undefined) {
-                type = item.type.split('.');
-            }
+            //Get type and formatting string.
+            arrType = getTypeAndFormat(item);
+            type = arrType[0];
+            format = arrType[1];
             
             //Length of the data type.
-            if (type[0] == 'STRING') {
+            if (type == 'STRING') {
                 //If no length is given, set it to 80 characters (TwinCAT default).                 
-                len = (type[1] === undefined) ? plcTypeLen.STRING : parseInt(type[1],10);
+                len = (format === undefined) ? plcTypeLen.STRING : parseInt(format,10);
+                len++; //Termination
             } else {
-                len = plcTypeLen[type[0]];
+                len = plcTypeLen[type];
             }
-            
+
             reqDescr.readLength += len;
             
             //Build the request buffer.
             //The function dataToByteArray expects an item with a value for
             //converting, so a dummy object is used here.
             dummy.val = getIndexGroup(item);
-            bytes = dataToByteArray(dummy, ['UDINT'], 4);
+            bytes = dataToByteArray(dummy, 'UDINT', format, 4);
             reqBuffer = reqBuffer.concat(bytes);
             
             dummy.val = getIndexOffset(item);
-            bytes = dataToByteArray(dummy, ['UDINT'], 4);
+            bytes = dataToByteArray(dummy, 'UDINT', format, 4);
             reqBuffer = reqBuffer.concat(bytes);
             
             dummy.val = len;
-            bytes = dataToByteArray(dummy, ['UDINT'], 4);
+            bytes = dataToByteArray(dummy, 'UDINT', format, 4);
             reqBuffer = reqBuffer.concat(bytes);
             
         }
-        
-        
+              
         //Convert the request buffer to Base64 coded data.
         if (reqBuffer.length > 0) {
             pwrData = encodeBase64(reqBuffer);
         }   
-        
-        
-        console.log(reqBuffer);
-        console.log(pwrData);
-        
-        //Set IndexGroup and Offset for the request    
-        //reqDescr.IndexGroup = indexGroups.SumRd;
-        //reqDescr.IndexOffset = itemList.length;
         
         //Generate the ADS request object and call the send function.
         adsReq = {
@@ -2596,7 +2645,6 @@ TAME.WebServiceClient = function (service) {
             reqDescr: reqDescr
         };
         createRequest(adsReq).send();
-            
     };
     
 
@@ -2695,8 +2743,6 @@ TAME.WebServiceClient = function (service) {
     this.readArrayOfDate = function(args) { createArrayDescriptor('Read', 'DATE', args); };
     this.readArrayOfDt = function(args) { createArrayDescriptor('Read', 'DT', args); };
     this.readArrayOfStruct = function(args) { createArrayDescriptor('Read', 'STRUCT', args); };
-    
-    
        
     
     /**
@@ -2822,8 +2868,6 @@ TAME.WebServiceClient = function (service) {
             }
         };
         createRequest(adsReq2).send();
-        
-    
     }
     
     
@@ -2935,6 +2979,7 @@ TAME.WebServiceClient = function (service) {
         
         //Get the symbol file and parse it.
         getSymFile();
+        symTableOk = true;
         
         try {
             console.log('TAME library info: End of reading the SymFile.');
@@ -2948,6 +2993,7 @@ TAME.WebServiceClient = function (service) {
         
         //Get the UploadInfo.
         getUploadInfo();
+        symTableOk = true;
         
         try {
             console.log('TAME library info: End of reading the UploadInfo.');

@@ -32,39 +32,39 @@ window.onload = function() {
     
     //Functions for writing/reading data
     var pollWert1 = function() {
-        Plc.readBool({name: '.IN_BOOL1', jvar: 'field1.data'});
+        Plc.readBool({name: '.In_Bool1', jvar: 'field1.data'});
     };
     var pollWert2 = function() {
-        Plc.readBool({addr: '%MX0.1', jvar: 'field2.data'});
+        Plc.readBool({name: '.In_Bool2', jvar: 'field2.data'});
     };
     var pollWert5 = function() {
-        Plc.readSint({name: '.IN_SINT1', jvar: 'field5.data'});
+        Plc.readSint({name: '.In_SINT1', jvar: 'field5.data'});
     };
     var pollWert6 = function() {
-        Plc.readInt({addr: '%MB8', jvar: 'field6.data'});
+        Plc.readInt({name: '.In_INT1', jvar: 'field6.data'});
     };
     var pollWert7 = function() {
-        Plc.readDint({addr: '%MB12', jvar: 'field7.data'});
+        Plc.readDint({name: '.In_DINT', jvar: 'field7.data'});
     };
     var pollWert8 = function() {
-        Plc.readString({addr: '%MB16', strlen: 11, jvar: 'field8.data'});
+        Plc.readString({name: '.In_STRING', strlen: 11, jvar: 'field8.data'});
     };
     var pollWert9 = function() {
-        Plc.readTime({addr: '%MB28', jvar: 'field9.data', format:'#m'});
+        Plc.readTime({name: '.In_TIME', jvar: 'field9.data', format:'#m'});
     };
     var pollWert10 = function() {
-        Plc.readTod({addr: '%MB52', jvar: 'field10.data', format:'#hh#:#mm#:#ss#:#msmsms'});
+        Plc.readTod({name: '.TOD_Test', jvar: 'field10.data', format:'#hh#:#mm#:#ss#:#msmsms'});
     };
     var pollWert11 = function() {
-        Plc.readDt({addr: '%MB56', jvar: 'field11.data', format:'#DD#.#MM#.#YYYY#, #hh#:#mm#:#ss'});
-        Plc.readDt({addr: '%MB56', jvar: 'field20.data'});
+        Plc.readDt({name: '.DT_Test', jvar: 'field11.data', format:'#DD#.#MM#.#YYYY#, #hh#:#mm#:#ss'});
+        Plc.readDt({name: '.DT_Test', jvar: 'field20.data'});
     };
     var pollWert12 = function() {
-        Plc.readDate({addr: '%MB60', jvar: 'field12.data', format:'#WEEKDAY#, #DD#.#MM#.#YYYY'});
+        Plc.readDate({name: '.DATE_Test ', jvar: 'field12.data', format:'#WEEKDAY#, #DD#.#MM#.#YYYY'});
     };
     var pollWert13 = function() {
-        Plc.readReal({addr: '%MB32', jvar: 'field13.data', decPlaces: 2});
-        Plc.readReal({addr: '%MB32', jvar: 'field21.data'});
+        Plc.readReal({name: '.In_REAL', jvar: 'field13.data', decPlaces: 2});
+        Plc.readReal({name: '.In_REAL', jvar: 'field21.data'});
     };
     
     //Buttons
@@ -75,7 +75,7 @@ window.onload = function() {
     };
     document.getElementById('button2').onclick = function() {
         var wert = document.getElementById('checkbox2').checked;
-        Plc.writeBool({addr: '%MX0.1', val: wert, oc: pollWert2, ocd: 50});
+        Plc.writeBool({name: '.In_Bool2', val: wert, oc: pollWert2, ocd: 50});
     };
     document.getElementById('button5').onclick = function() {
         var wert = document.getElementById('input1').value;
@@ -83,35 +83,35 @@ window.onload = function() {
     };
     document.getElementById('button6').onclick = function() {
         var wert = document.getElementById('input2').value;
-        Plc.writeInt({addr: '%MB8', val: wert, oc: pollWert6, ocd: 50});
+        Plc.writeInt({name: '.In_INT1', val: wert, oc: pollWert6, ocd: 50});
     };
     document.getElementById('button7').onclick = function() {
         var wert = document.getElementById('input3').value;
-        Plc.writeDint({addr: '%MB12', val: wert, oc: pollWert7, ocd: 50});
+        Plc.writeDint({name: '.In_DINT', val: wert, oc: pollWert7, ocd: 50});
     };
     document.getElementById('button8').onclick = function() {
         var wert = document.getElementById('input4').value;
-        Plc.writeString({addr: '%MB16', strlen: 11, val: wert, oc: pollWert8, ocd: 50});
+        Plc.writeString({name: '.In_STRING', strlen: 11, val: wert, oc: pollWert8, ocd: 50});
     };
     document.getElementById('button9').onclick = function() {
         var wert = document.getElementById('input5').value;
-        Plc.writeTime({addr: '%MB28', val: wert, oc: pollWert9, ocd: 50, format:'#m'});
+        Plc.writeTime({name: '.In_TIME', val: wert, oc: pollWert9, ocd: 50, format:'#m'});
     };
     document.getElementById('button10').onclick = function() {
         var wert = new Date(new Date());
-        Plc.writeTod({addr: '%MB52', val: wert, oc: pollWert10, ocd: 50});
+        Plc.writeTod({name: '.TOD_Test', val: wert, oc: pollWert10, ocd: 50});
     };
     document.getElementById('button11').onclick = function() {
         var wert = new Date(new Date());
-        Plc.writeDt({addr: '%MB56', val: wert, oc: pollWert11, ocd: 50});
+        Plc.writeDt({name: 'DT_Test', val: wert, oc: pollWert11, ocd: 50});
     };
     document.getElementById('button12').onclick = function() {
         var wert = new Date(new Date());
-        Plc.writeDate({addr: '%MB60', val: wert, oc: pollWert12, ocd: 50});
+        Plc.writeDate({name: '.DATE_Test ', val: wert, oc: pollWert12, ocd: 50});
     };
     document.getElementById('button13').onclick = function() {
         var wert = document.getElementById('input6').value;
-        Plc.writeReal({addr: '%MB32', val: wert, oc: pollWert13, ocd: 50});
+        Plc.writeReal({name: '.In_REAL', val: wert, oc: pollWert13, ocd: 50});
     };
     
     
@@ -130,7 +130,7 @@ window.onload = function() {
     //boolean variables to %MB-adresses.
     pollZyk1 = function(){
         Plc.readReq({
-            addr: '%MB2000',
+            name: '%MB2000',
             seq: true,   //Set it to "false", if you want to address each PLC variable on it's own.
             id: 1,        //If an ID is given, the script waits for the end of the request before firing a new one.
             items: [

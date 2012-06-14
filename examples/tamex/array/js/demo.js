@@ -28,21 +28,18 @@ window.onload = function(){
         }
         var item = parseInt((document.getElementById("stringIdx").value), 10);
         Plc.writeArrayOfString({
-            addr: '%MB250',
+            name: '.ArrayOfString',
             val: Demo.stringArrayOut,
             item: item,
-            arrlen: 5,
-            strlen: 10,
             oc: Demo.readStringArray,
-            ocd: 50
+            ocd: 50,
+            debug: true
         });
     };
 
     Demo.readStringArray = function(){
         Plc.readArrayOfString({
-            addr: '%MB250',
-            strlen: 10,
-            arrlen: 5,
+            name: '.ArrayOfString',
             jvar: 'Demo.stringArrayIn',
             oc: function() {
                  for (var i = 0; i < 5; i++) {
@@ -65,19 +62,18 @@ window.onload = function(){
         }
         var item2 = parseInt((document.getElementById("boolIdx").value), 10);
         Plc.writeArrayOfBool({
-            addr: '%MB310',
+            name: '.ArrayOfBool',
             val: Demo.boolArrayOut,
             item: item2,
-            arrlen: 5,
             oc: Demo.readBoolArray,
-            ocd: 50
+            ocd: 50,
+            debug: true
         });
     };
 
     Demo.readBoolArray = function(){
         Plc.readArrayOfBool({
-            addr: '%MB310',
-            arrlen: 5,
+            name: '.ArrayOfBool',
             jvar: 'Demo.boolArrayIn',
             oc: function() {
                  for (var i = 0; i < 5; i++) {

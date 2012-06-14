@@ -64,6 +64,10 @@ window.onload = function() {
                 addr:  '%MB16',
                 jvar: 'Demo.displayFields[7].data',
                 type: 'STRING.11'
+            },{
+                addr:  '%MB28',
+                jvar: 'Demo.displayFields[8].data',
+                type: 'TIME.#m'
             }]
         });
     };
