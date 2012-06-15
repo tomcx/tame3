@@ -75,6 +75,7 @@ TAME.WebServiceClient = function (service) {
             WORD: 2,
             UINT: 2,
             INT: 2,
+            INT16: 2,
             INT1DP: 2,
             DWORD: 4,
             UDINT: 4,
@@ -469,7 +470,8 @@ TAME.WebServiceClient = function (service) {
                 val = checkValue(item, type, 0, 65535);
                 bytes = numToByteArr(val, len);
                 break;
-            case 'INT':                
+            case 'INT':
+            case 'INT16':                
                 val = checkValue(item, type, -32768, 32767);
                 if (val < 0) {
                     val = val + 65536;
@@ -1130,6 +1132,7 @@ TAME.WebServiceClient = function (service) {
                 data = parsePlcUint(dataString);
                 break;
             case 'INT':
+            case 'INT16':
                 data = parsePlcInt(dataString);
                 break;
             case 'INT1DP':
@@ -1321,12 +1324,9 @@ TAME.WebServiceClient = function (service) {
                     len = (isValidStringLen(strlen) ? strlen : len) + 1;
                 }
                 
-                console.log(strAddr + '; ' + type);
-                
                 //Slice the string and decode the data
                 dataSubString = dataString.substr(strAddr, len);
                 data = subStringToData(dataSubString, type, format);
-                console.log(data);
                 
                 //Parse the name of the JavaScript variable and write the data to it
                 parseVarName(item.jvar, data, adsReq.reqDescr.dataObj, item.prefix, item.suffix);
@@ -1391,6 +1391,12 @@ TAME.WebServiceClient = function (service) {
                 a = arr[i].substring(0,arr[i].length - 1).split('[');
                 obj = obj[a[0]][a[1]];
             } else {
+                //Create an array if object is not defined.
+                //This can happen when an array of structure is
+                //not defined.
+                if (obj[arr[i]] === undefined) {
+                    obj[arr[i]] = {};
+                }                
                 obj = obj[arr[i]];
             }
             i++;
@@ -1401,6 +1407,7 @@ TAME.WebServiceClient = function (service) {
             //If last item of the name is an array
             a = arr[i].substring(0, arr[i].length - 1).split('[');
             obj = obj[a[0]];
+            
             //Store data if passed.
             if (data !== undefined) {
                 if (typeof prefix == 'string') {
@@ -1840,7 +1847,14 @@ TAME.WebServiceClient = function (service) {
         return val;
     }
     
-
+    
+    /**
+     * Get type and format and return it in an array. Create an
+     * item.type entry if it doesn't exist.
+     * 
+     * @param {Object} item     An item of a variable list.
+     * @return {Array} arr      An array with type and format. 
+     */
     function getTypeAndFormat(item) {
         var arr = [];
         if (typeof item.type == 'string') {
@@ -1851,8 +1865,20 @@ TAME.WebServiceClient = function (service) {
                 arr[1] = arr.slice(1).join('.');
             } 
         } else if (symTableOk && typeof item.name == 'string'){
-            //Try to get the type
-            arr = symTable[item.name].type.split('(');
+            //Try to get the type from the symbol table and
+            //create the item.type property 
+            try {
+                arr = symTable[item.name].type.split('(');
+                arr[1] = arr[1].substr(0, arr[1].length - 1);
+                item.type = (arr[1] === undefined) ? arr[0] : arr[0] + '.' + arr[1];
+                arr[1] = parseInt(arr[1], 10);
+            } catch(e) {
+                try {
+                    console.log('TAME library error: A problem occured while reading a data type from the symbol table!');
+                    console.log(e);
+                    console.log(item);
+                } catch(e){}
+            }
         } else {
             try {
                 console.log('TAME library error: Could not get the type of the item!');
@@ -1861,6 +1887,8 @@ TAME.WebServiceClient = function (service) {
         }
         return arr;
     }
+    
+    
     
     //======================================================================================
     //                     Functions for Creating Request Descriptors
@@ -1896,7 +1924,7 @@ TAME.WebServiceClient = function (service) {
                 } else if (symTableOk === true) {
                     //Get the string length from the symbol table.
                     try {
-                        len = symTable[args.name].type.split('(')[1];
+                        len = parseInt(symTable[args.name].type.substring(7, symTable[args.name].type.length - 1), 10);
                         type += '.' + len;   
                     } catch(e) {
                         try {
@@ -2042,9 +2070,11 @@ TAME.WebServiceClient = function (service) {
                 } catch(e){}
             }
         }
-            
-        if (type === 'STRUCT') {
-            //---------------------- Array of Structures ---------------------
+        
+        /**
+         * Function for creating an descriptor for array of structures.
+         */
+        function createStructArr() {
             //Parse the name of the structure definiton, if it is passed
             //as a string.
             if (typeof args.def == 'string') {
@@ -2203,8 +2233,12 @@ TAME.WebServiceClient = function (service) {
                     cnt++;
                 }
             }
-        } else {
-            //---------------------- Simple Array -----------------------
+        }
+        
+        /**
+         * Function for creating a descriptor for a simple array.
+         */
+        function createSimpleArr() {
             len = plcTypeLen[type];
                       
             switch (type) {
@@ -2278,6 +2312,13 @@ TAME.WebServiceClient = function (service) {
                     } 
                 }
             }
+        }
+        
+            
+        if (type === 'STRUCT') {
+            createStructArr();
+        } else {
+            createSimpleArr();
         }
 
         //Call the send function.
@@ -2603,6 +2644,29 @@ TAME.WebServiceClient = function (service) {
             type = arrType[0];
             format = arrType[1];
             
+            //Add formatting if it's passed and not already set
+            switch (type) {
+                case 'TIME':
+                case 'TOD':
+                case 'DT':
+                case 'DATE':
+                    //Append the format string to the data type.
+                    if (typeof item.format == 'string' && format === undefined) {
+                        type += '.' + item.format;
+                    }
+                    break;
+                case 'REAL':
+                case 'LREAL':
+                    //Append the number of decimal places to the data type.
+                    if (typeof item.decPlaces  == 'number' && format === undefined) {
+                        type += '.' + item.decPlaces;
+                        
+                    } else if (typeof item.dp  == 'number' && format === undefined) {
+                        type += '.' + item.dp;
+                    }
+                    break;
+            }
+            
             //Length of the data type.
             if (type == 'STRING') {
                 //If no length is given, set it to 80 characters (TwinCAT default).                 
@@ -2651,10 +2715,8 @@ TAME.WebServiceClient = function (service) {
     /**
      *  Prints the symbol table to the console.
      */
-    this.logSymbols = function() {
-        
+    this.logSymbols = function() {       
         console.log(symTable);
-        
     }
 
 
@@ -2983,6 +3045,7 @@ TAME.WebServiceClient = function (service) {
         
         try {
             console.log('TAME library info: End of reading the SymFile.');
+            console.log('TAME library info: Symbol table ready.');
         } catch (e) {}
         
     } else if (service.useUploadInfo !== false) {
@@ -2997,6 +3060,7 @@ TAME.WebServiceClient = function (service) {
         
         try {
             console.log('TAME library info: End of reading the UploadInfo.');
+            console.log('TAME library info: Symbol table ready.');
         } catch (e) {}
         
     }

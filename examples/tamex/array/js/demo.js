@@ -32,8 +32,7 @@ window.onload = function(){
             val: Demo.stringArrayOut,
             item: item,
             oc: Demo.readStringArray,
-            ocd: 50,
-            debug: true
+            ocd: 50
         });
     };
 
@@ -66,8 +65,7 @@ window.onload = function(){
             val: Demo.boolArrayOut,
             item: item2,
             oc: Demo.readBoolArray,
-            ocd: 50,
-            debug: true
+            ocd: 50
         });
     };
 

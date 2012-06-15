@@ -65,11 +65,10 @@ Demo.grid.teststruct = {
 //The functions for sending/reading data
 Demo.grid.readData = function() {
     Plc.readArrayOfStruct({
-        addr: '%MB600',
+        name: '.ArrayTestStruct3',
         oc: function() {
             Ext.data.StoreManager.lookup('gridstore').load();
         },
-        arrlen: 20,
         def: Demo.grid.teststruct,
         jvar: 'Demo.grid.data'
     });
@@ -78,9 +77,8 @@ Demo.grid.readData = function() {
 Demo.grid.sendData = function() {
     Demo.grid.data[Demo.grid.dataIndex] = Demo.grid.window.getComponent('grid_formpanel').getForm().getFieldValues();
     Plc.writeArrayOfStruct({
-        addr: '%MB600',
+        name: '.ArrayTestStruct3',
         def: Demo.grid.teststruct,
-        arrlen: 20,
         item: Demo.grid.dataIndex,
         val: Demo.grid.data,
         oc: Demo.grid.readData,

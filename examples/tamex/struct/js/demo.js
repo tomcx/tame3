@@ -9,13 +9,6 @@ var Demo = {
     dataOut: {}
 };
 
-//Predefine object properties
-(function () {
-     //At least the array of strings must be defined
-    Demo.dataIn = {var_5: []};
-    Demo.dataOut = {var_5: []};
-
-})();
 
 window.onload = function(){
 
@@ -37,13 +30,14 @@ window.onload = function(){
         Demo.dataOut.var_2 = document.getElementById("input2").value;
         Demo.dataOut.var_3 = document.getElementById("input3").value;
         Demo.dataOut.var_4 = document.getElementById("input4").value;
+        Demo.dataOut.var_5 = [];
         for (var i = 0; i < 5; i++) {
             Demo.dataOut.var_5[i] = document.getElementById("input5" + i).value;
         }
         Demo.dataOut.var_6 = document.getElementById("input6").value;
         
         Plc.writeStruct({
-            addr: '%MB500',
+            name: '.TestStruct',
             val: Demo.dataOut,
             def: structdef,
             oc: Demo.readStructure,
@@ -53,7 +47,7 @@ window.onload = function(){
 
     Demo.readStructure = function(){
         Plc.readStruct({
-            addr: '%MB500',
+            name: '.TestStruct',
             def: structdef,
             jvar: 'Demo.dataIn',
             oc: function() {

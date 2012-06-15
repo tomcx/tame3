@@ -94,11 +94,10 @@ Demo.chart.createWindow = function(){
     var interval = window.setInterval(
         function(){
             Plc.readArrayOfStruct({
-                addr: '%MB2100',
+                name: '.ArrayChart',
                 oc: function(){
                     Ext.data.StoreManager.lookup('chartstore').load();
                 },
-                arrlen: 10,
                 def: teststruct,
                 jvar: 'Demo.chart.data'
             });

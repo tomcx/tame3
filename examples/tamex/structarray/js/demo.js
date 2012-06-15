@@ -9,14 +9,6 @@ var Demo = {
     arrayOut: []
 };
 
-//Predefine arrays
-(function () {
-    for (var i = 0; i < 5; i++) {
-         //At least the array of bytes must be defined
-        Demo.arrayIn[i] = {var_5: []};
-        Demo.arrayOut[i] = {var_5: []};
-    }
-})();
 
 window.onload = function(){
 
@@ -34,10 +26,12 @@ window.onload = function(){
 
     button1.onclick = function(){
         for (var i = 0; i < 4; i++) {
+            Demo.arrayOut[i] = {};
             Demo.arrayOut[i].var_1 = document.getElementById("input1" + i).value;
             Demo.arrayOut[i].var_2 = document.getElementById("input2" + i).value;
             Demo.arrayOut[i].var_3 = document.getElementById("input3" + i).value;
             Demo.arrayOut[i].var_4 = document.getElementById("input4" + i).value;
+            Demo.arrayOut[i].var_5 = [];
             for (var j = 0; j < 5; j++) {
                 Demo.arrayOut[i].var_5[j] = document.getElementById("input5" + i + j).value;
             }
@@ -46,10 +40,9 @@ window.onload = function(){
         var item = parseInt((document.getElementById("idx").value), 10);
         
         Plc.writeArrayOfStruct({
-            addr: '%MB352',
+            name: '.ArrayOfTestStruct2',
             val: Demo.arrayOut,
             item: item,
-            arrlen: 4,
             def: structdef,
             oc: Demo.readArray,
             ocd: 50
@@ -58,8 +51,7 @@ window.onload = function(){
 
     Demo.readArray = function(){
         Plc.readArrayOfStruct({
-            addr: '%MB352',
-            arrlen: 4,
+            name: '.ArrayOfTestStruct2',
             def: structdef,
             jvar: 'Demo.arrayIn',
             oc: function() {

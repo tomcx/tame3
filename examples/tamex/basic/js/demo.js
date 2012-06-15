@@ -1,6 +1,6 @@
 /**
- *  @author T.Schmidt, 05.06.2012
- *  Very basic example for using TAME.
+ *  @author T.Schmidt, 14.06.2012
+ *  Very basic example using TAME 3.
  */
 
 //Global variables
@@ -47,7 +47,7 @@ window.onload = function() {
         Plc.readDint({name: '.In_DINT', jvar: 'field7.data'});
     };
     var pollWert8 = function() {
-        Plc.readString({name: '.In_STRING', strlen: 11, jvar: 'field8.data'});
+        Plc.readString({name: '.In_STRING', jvar: 'field8.data'});
     };
     var pollWert9 = function() {
         Plc.readTime({name: '.In_TIME', jvar: 'field9.data', format:'#m'});
@@ -60,7 +60,7 @@ window.onload = function() {
         Plc.readDt({name: '.DT_Test', jvar: 'field20.data'});
     };
     var pollWert12 = function() {
-        Plc.readDate({name: '.DATE_Test ', jvar: 'field12.data', format:'#WEEKDAY#, #DD#.#MM#.#YYYY'});
+        Plc.readDate({name: '.DATE_Test', jvar: 'field12.data', format:'#WEEKDAY#, #DD#.#MM#.#YYYY'});
     };
     var pollWert13 = function() {
         Plc.readReal({name: '.In_REAL', jvar: 'field13.data', decPlaces: 2});
@@ -91,7 +91,7 @@ window.onload = function() {
     };
     document.getElementById('button8').onclick = function() {
         var wert = document.getElementById('input4').value;
-        Plc.writeString({name: '.In_STRING', strlen: 11, val: wert, oc: pollWert8, ocd: 50});
+        Plc.writeString({name: '.In_STRING', val: wert, oc: pollWert8, ocd: 50});
     };
     document.getElementById('button9').onclick = function() {
         var wert = document.getElementById('input5').value;
@@ -103,11 +103,11 @@ window.onload = function() {
     };
     document.getElementById('button11').onclick = function() {
         var wert = new Date(new Date());
-        Plc.writeDt({name: 'DT_Test', val: wert, oc: pollWert11, ocd: 50});
+        Plc.writeDt({name: '.DT_Test', val: wert, oc: pollWert11, ocd: 50});
     };
     document.getElementById('button12').onclick = function() {
         var wert = new Date(new Date());
-        Plc.writeDate({name: '.DATE_Test ', val: wert, oc: pollWert12, ocd: 50});
+        Plc.writeDate({name: '.DATE_Test', val: wert, oc: pollWert12, ocd: 50});
     };
     document.getElementById('button13').onclick = function() {
         var wert = document.getElementById('input6').value;
@@ -126,35 +126,31 @@ window.onload = function() {
      
     //This function reads the data of 2 counters and 5 boolean variables 
     //an calls itself again. Of course you can use "setInterval" instead.
-    //Note that you can't read multiple data with the %MX-range, so set your
-    //boolean variables to %MB-adresses.
     pollZyk1 = function(){
-        Plc.readReq({
-            name: '%MB2000',
-            seq: true,   //Set it to "false", if you want to address each PLC variable on it's own.
+        Plc.sumReadReq({
             id: 1,        //If an ID is given, the script waits for the end of the request before firing a new one.
             items: [
                 {
-                    jvar: 'counter1.data',
-                    type: 'INT'
+                    name: 'MAIN.Ramp1',
+                    jvar: 'counter1.data'
                 },{
-                    jvar: 'counter2.data',
-                    type: 'INT'
+                    name: 'MAIN.Ramp2',
+                    jvar: 'counter2.data'
                 },{
-                    jvar: 'runLight[0]',
-                    type: 'BOOL'
+                    name: 'MAIN.RunningLight1',
+                    jvar: 'runLight[0]'
                 },{
-                    jvar: 'runLight[1]',
-                    type: 'BOOL'
+                    name: 'MAIN.RunningLight2',
+                    jvar: 'runLight[1]'
                 },{
-                    jvar: 'runLight[2]',
-                    type: 'BOOL'
+                    name: 'MAIN.RunningLight3',
+                    jvar: 'runLight[2]'
                 },{
-                    jvar: 'runLight[3]',
-                    type: 'BOOL'
+                    name: 'MAIN.RunningLight4',
+                    jvar: 'runLight[3]'
                 },{
-                    jvar: 'runLight[4]',
-                    type: 'BOOL'
+                    name: 'MAIN.RunningLight5',
+                    jvar: 'runLight[4]'
                 }
             ],
             oc: function() {
@@ -172,17 +168,11 @@ window.onload = function() {
         window.setTimeout('pollZyk1()', 100); //Timeout 100 ms
     };
 
-var x;
-for (var i=0;i>0;i++) {
-    x += 1;
-}
-
     
     /*
      *  Start
-     */
-    
-    //pollZyk1();
+     */    
+    pollZyk1();
     pollWert1();
     pollWert2();
     pollWert5();
@@ -197,6 +187,3 @@ for (var i=0;i>0;i++) {
 
 };
 
-window.onbeforeunload = function() {
-    alert('unload');
-};

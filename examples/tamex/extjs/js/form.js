@@ -31,7 +31,7 @@ Demo.form.teststruct = {
 
 Demo.form.readData = function() {
     Plc.readStruct({
-        addr: '%MB1200',
+        name: '.TestStruct4',
         oc: function(){
             Demo.form.window.getComponent('formpanel').getForm().setValues(Demo.form.data);
         },
@@ -43,7 +43,7 @@ Demo.form.readData = function() {
 Demo.form.sendData = function() {
     Demo.form.data = Demo.form.window.getComponent('formpanel').getForm().getFieldValues();
     Plc.writeStruct({
-        addr: '%MB1200',
+        name: '.TestStruct4',
         def: Demo.form.teststruct,
         val: Demo.form.data,
         oc: Demo.form.readData,

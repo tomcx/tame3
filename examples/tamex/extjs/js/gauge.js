@@ -63,7 +63,7 @@ Demo.gauge.createWindow = function(){
     var interval = window.setInterval(
         function(){
             Plc.readInt({
-                addr: '%MB2002',
+                name: 'MAIN.Ramp2',
                 oc: function(){
                     Ext.data.StoreManager.lookup('gaugestore').load();
                 },
