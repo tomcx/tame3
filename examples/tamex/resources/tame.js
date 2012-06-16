@@ -1,5 +1,5 @@
 /*
- * TAME [TwinCAT ADS Made Easy] V3.0 alpha
+ * TAME [TwinCAT ADS Made Easy] V3.0 beta
  * 
  * Copyright (c) 2009-2012 Thomas Schmidt; t.schmidt.p1 at freenet.de
  * 
@@ -437,7 +437,7 @@ TAME.WebServiceClient = function (service) {
                 default:
                     item.val = 0;
                     break;       
-            } 
+            }
             try {
                 console.log('TAME library warning: Value of a variable in write request is not defined!');
                 console.log(item);
@@ -1395,7 +1395,7 @@ TAME.WebServiceClient = function (service) {
                 //This can happen when an array of structure is
                 //not defined.
                 if (obj[arr[i]] === undefined) {
-                    obj[arr[i]] = {};
+                    obj[arr[i]] = [];
                 }                
                 obj = obj[arr[i]];
             }
@@ -1869,9 +1869,13 @@ TAME.WebServiceClient = function (service) {
             //create the item.type property 
             try {
                 arr = symTable[item.name].type.split('(');
-                arr[1] = arr[1].substr(0, arr[1].length - 1);
-                item.type = (arr[1] === undefined) ? arr[0] : arr[0] + '.' + arr[1];
-                arr[1] = parseInt(arr[1], 10);
+                if (arr[1] !== undefined) {
+                    arr[1] = arr[1].substr(0, arr[1].length - 1);
+                    item.type = arr[0] + '.' + arr[1];
+                    arr[1] = parseInt(arr[1], 10);
+                } else {
+                    item.type = arr[0];
+                }
             } catch(e) {
                 try {
                     console.log('TAME library error: A problem occured while reading a data type from the symbol table!');
@@ -2652,17 +2656,17 @@ TAME.WebServiceClient = function (service) {
                 case 'DATE':
                     //Append the format string to the data type.
                     if (typeof item.format == 'string' && format === undefined) {
-                        type += '.' + item.format;
+                        item.type += '.' + item.format;
                     }
                     break;
                 case 'REAL':
                 case 'LREAL':
                     //Append the number of decimal places to the data type.
                     if (typeof item.decPlaces  == 'number' && format === undefined) {
-                        type += '.' + item.decPlaces;
+                        item.type += '.' + item.decPlaces;
                         
                     } else if (typeof item.dp  == 'number' && format === undefined) {
-                        type += '.' + item.dp;
+                        item.type += '.' + item.dp;
                     }
                     break;
             }
@@ -2677,7 +2681,7 @@ TAME.WebServiceClient = function (service) {
             }
 
             reqDescr.readLength += len;
-            
+         
             //Build the request buffer.
             //The function dataToByteArray expects an item with a value for
             //converting, so a dummy object is used here.
