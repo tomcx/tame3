@@ -1,4 +1,5 @@
 tame3
 =====
 
-Next version of the TAME lib. It's under heavy construction and far from being usable. Please don't make any commits.
+The new version of the TAME library. New features are the access to PLC variables by name and SumReadRequests.
+Beta state, no docs yet, examples work.
