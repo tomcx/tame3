@@ -1,4 +1,4 @@
-/*
+/*!
  * TAME [TwinCAT ADS Made Easy] V3.0 beta
  * 
  * Copyright (c) 2009-2012 Thomas Schmidt; t.schmidt.p1 at freenet.de
@@ -2972,7 +2972,12 @@ TAME.WebServiceClient = function (service) {
                 };
                 
                 strAddr += infoLen;
-            }     
+            }
+            symTableOk = true;       
+            try {
+                console.log('TAME library info: End of reading the UploadInfo.');
+                console.log('TAME library info: Symbol table ready.');
+            } catch (e) {}      
         } catch (e) {
             try {
                 console.log('TAME library error: Parsing of uploaded symbol information failed:' + e);
@@ -3017,6 +3022,11 @@ TAME.WebServiceClient = function (service) {
                     };
                     symTable[name].size = (symTable[name].bitSize >= 8) ? symTable[name].bitSize/8 : symTable[name].bitSize;
                 }
+                symTableOk = true;       
+                try {
+                    console.log('TAME library info: End of reading the UploadInfo.');
+                    console.log('TAME library info: Symbol table ready.');
+                } catch (e) {}       
             } catch(e) {
                 try {
                 console.log('TAME library error: An error occured while parsing the symbol file:');
@@ -3045,12 +3055,6 @@ TAME.WebServiceClient = function (service) {
         
         //Get the symbol file and parse it.
         getSymFile();
-        symTableOk = true;
-        
-        try {
-            console.log('TAME library info: End of reading the SymFile.');
-            console.log('TAME library info: Symbol table ready.');
-        } catch (e) {}
         
     } else if (service.useUploadInfo !== false) {
         
@@ -3060,15 +3064,8 @@ TAME.WebServiceClient = function (service) {
         
         //Get the UploadInfo.
         getUploadInfo();
-        symTableOk = true;
-        
-        try {
-            console.log('TAME library info: End of reading the UploadInfo.');
-            console.log('TAME library info: Symbol table ready.');
-        } catch (e) {}
-        
     }
-    
+ 
 };
 
 
