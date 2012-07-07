@@ -1,5 +1,5 @@
 /*!
- * TAME [TwinCAT ADS Made Easy] V3.0 beta
+ * TAME [TwinCAT ADS Made Easy] V3.0 beta 2
  * 
  * Copyright (c) 2009-2012 Thomas Schmidt; t.schmidt.p1 at freenet.de
  * 
@@ -59,14 +59,14 @@ TAME.WebServiceClient = function (service) {
             IX: 61473,   //PLC process diagram of the physical inputs(%IX field), READ_IX - WRITE_IX
             Q: 61488,    //PLC process diagram of the physical outputs(%Q field), READ_Q - WRITE_Q
             QX: 61489,   //PLC process diagram of the physical outputs(%QX field), READ_QX - WRITE_QX
-            Upload: 61451,
-            UploadInfo: 61452,
-            SumRd: 61568,
-            SumWr: 61569,
-            SumRdWr: 61570
+            Upload: 61451,      //Contains the symbol information
+            UploadInfo: 61452,  //Length and number of the symbol information
+            SumRd: 61568,       //SumUpReadRequest
+            SumWr: 61569,       //SumUpWriteRequest
+            SumRdWr: 61570      //SumUpReadWriteRequest
         },
 
-        //Lenght of PLC data types in byte.
+        //Lenght of PLC data types in bytes.
         plcTypeLen = {
             BOOL: 1,
             BYTE: 1,
@@ -2719,8 +2719,10 @@ TAME.WebServiceClient = function (service) {
     /**
      *  Prints the symbol table to the console.
      */
-    this.logSymbols = function() {       
-        console.log(symTable);
+    this.logSymbols = function() {
+        try { 
+            console.log(symTable);
+        } catch(e) {}
     }
 
 
@@ -3024,7 +3026,7 @@ TAME.WebServiceClient = function (service) {
                 }
                 symTableOk = true;       
                 try {
-                    console.log('TAME library info: End of reading the UploadInfo.');
+                    console.log('TAME library info: End of reading the SymFile.');
                     console.log('TAME library info: Symbol table ready.');
                 } catch (e) {}       
             } catch(e) {
@@ -3056,7 +3058,7 @@ TAME.WebServiceClient = function (service) {
         //Get the symbol file and parse it.
         getSymFile();
         
-    } else if (service.useUploadInfo !== false) {
+    } else if (service.dontReadUpload !== true) {
         
         try {
             console.log('TAME library info: Start of reading the UploadInfo.');

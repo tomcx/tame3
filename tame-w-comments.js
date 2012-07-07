@@ -1,5 +1,5 @@
 /*!
- * TAME [TwinCAT ADS Made Easy] V3.0 beta
+ * TAME [TwinCAT ADS Made Easy] V3.0 beta 2
  * 
  * Copyright (c) 2009-2012 Thomas Schmidt; t.schmidt.p1 at freenet.de
  * 
@@ -3026,7 +3026,7 @@ TAME.WebServiceClient = function (service) {
                 }
                 symTableOk = true;       
                 try {
-                    console.log('TAME library info: End of reading the UploadInfo.');
+                    console.log('TAME library info: End of reading the SymFile.');
                     console.log('TAME library info: Symbol table ready.');
                 } catch (e) {}       
             } catch(e) {
@@ -3058,7 +3058,7 @@ TAME.WebServiceClient = function (service) {
         //Get the symbol file and parse it.
         getSymFile();
         
-    } else if (service.useUploadInfo !== false) {
+    } else if (service.dontReadUpload !== true) {
         
         try {
             console.log('TAME library info: Start of reading the UploadInfo.');

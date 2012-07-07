@@ -1,13 +1,27 @@
+                       TAME V3.0b2 Release Notes 
+                       -------------------------
+
+
+- Changed API: The name of the parameter for preventing the use of the
+  Upload for building the symbol table has changed.
+
+    old             new
+    -----------     --------------
+    useUploadInfo   dontReadUpload
+
+
+
+
                        TAME V3.0b Release Notes 
                        ------------------------
                        
                        
 - New feature: Access to PLC variables by name is now possible. Internally 
-  the access uses IndexGroup/IndexOffset instead of handles, so a visalisation
-  has to be reloaded when the PLC program has changed.
+  IndexGroup/IndexOffset is used instead of handles, so a visualisation
+  has to be reloaded in the browser when the PLC program has changed.
   
 - New feature: Multiple PLC variables can be read by a SumReadRequest. The 
   advantage over the standart ReadRequest is that variables don't have to be
-  located. TwinCAT v2.10 Build >= 1324 is needed to use this feature!
+  located. TwinCAT V2.10 Build >= 1324 is needed to use this feature!
   
 
