@@ -1,3 +1,11 @@
+                       TAME V3.0 Release Notes 
+                       -------------------------
+                       
+- Bugfix: Fixed a problem with "readReq()" using addressed items.                 
+                       
+                       
+                       
+                       
                        TAME V3.0b2 Release Notes 
                        -------------------------
 

@@ -1,5 +1,5 @@
 /*!
- * TAME [TwinCAT ADS Made Easy] V3.0 beta 2
+ * TAME [TwinCAT ADS Made Easy] V3.0
  * 
  * Copyright (c) 2009-2012 Thomas Schmidt; t.schmidt.p1 at freenet.de
  * 
@@ -1194,7 +1194,7 @@ TAME.WebServiceClient = function (service) {
         itemList = adsReq.reqDescr.items,
         arrType = [],
         strAddr = 0,
-        item, dataString, dataSubString, data, strlen, len, plen, mod, type, format, idx, listlen;
+        item, dataString, dataSubString, data, strlen, len, plen, mod, type, format, idx, listlen, startaddr;
         
     
         try {
@@ -1234,7 +1234,8 @@ TAME.WebServiceClient = function (service) {
                 //Calculate the place of the element in the data string
                 if (adsReq.reqDescr.seq !== true) {
                     //If variable addresses are used.
-                    strAddr = item.addr - adsReq.reqDescr.addr;
+                    startaddr = getIndexOffset(adsReq.reqDescr);
+                    strAddr = item.addr - startaddr;
                 } else if (adsReq.reqDescr.dataAlign4 === true && plen > 1 && type != 'STRING' && strAddr > 0) {
                     //Compute the address for a 4-byte alignment in case of a structure.
                     mod = strAddr % plen;
@@ -2554,7 +2555,7 @@ TAME.WebServiceClient = function (service) {
         var adsReq = {},
             itemList = reqDescr.items,
             arrType = [],
-            item, format, type, listlen, mod, vlen, strlen, idx;
+            item, format, type, listlen, mod, vlen, strlen, idx, startaddr;
             
         //Set the variable name to upper case.
         if (typeof reqDescr.name == 'string') { 
@@ -2596,7 +2597,8 @@ TAME.WebServiceClient = function (service) {
                     reqDescr.readLength += vlen;
                 } else {
                     //Last element if single addresses are given.
-                    reqDescr.readLength = vlen + item.addr - reqDescr.addr;
+                    startaddr = getIndexOffset(reqDescr);
+                    reqDescr.readLength = vlen + item.addr - startaddr;
                 }
             }
         }
