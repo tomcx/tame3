@@ -31,7 +31,7 @@
         <hr>
 
         <section id="main_content">
-          <p><strong>Current version: V3.0 beta 2</strong></p>
+          <p><strong>Current version: V3.0</strong></p>
 
 <h2>Introduction</h2>
 
@@ -43,35 +43,25 @@
 
 <p>Link the library in your project like any other JavaScript file and create the client like this:</p>
 
-<div class="highlight">
-<pre><span class="kd">var</span> <span class="nx">Plc</span> <span class="o">=</span>  <span class="nx">TAME</span><span class="p">.</span><span class="nx">WebServiceClient</span><span class="p">.</span><span class="nx">createClient</span><span class="p">({</span>
+<div class="highlight"><pre><span class="kd">var</span> <span class="nx">Plc</span> <span class="o">=</span>  <span class="nx">TAME</span><span class="p">.</span><span class="nx">WebServiceClient</span><span class="p">.</span><span class="nx">createClient</span><span class="p">({</span>
     <span class="nx">serviceUrl</span><span class="o">:</span> <span class="s1">'http://192.168.1.2/TcAdsWebService/TcAdsWebService.dll'</span><span class="p">,</span>
     <span class="nx">amsNetId</span><span class="o">:</span> <span class="s1">'192.168.1.2.1.1'</span>
 <span class="p">});</span>
-</pre>
-</div>
-
+</pre></div>
 
 <p>To write a boolean variable to the PLC you just have to write one line of code:</p>
 
-<div class="highlight">
-<pre><span class="nx">Plc</span><span class="p">.</span><span class="nx">writeBool</span><span class="p">({</span><span class="nx">name</span><span class="o">:</span><span class="s2">"MAIN.MyBoolVar"</span><span class="p">,</span> <span class="nx">val</span><span class="o">:</span> <span class="kc">true</span><span class="p">});</span>
-</pre>
-</div>
-
+<div class="highlight"><pre><span class="nx">Plc</span><span class="p">.</span><span class="nx">writeBool</span><span class="p">({</span><span class="nx">name</span><span class="o">:</span><span class="s2">"MAIN.MyBoolVar"</span><span class="p">,</span> <span class="nx">val</span><span class="o">:</span> <span class="kc">true</span><span class="p">});</span>
+</pre></div>
 
 <p>Reading a PLC variable and storing the value in a (global) JavaScript variable is also quite easy:</p>
 
-<div class="highlight">
-<pre><span class="nx">Plc</span><span class="p">.</span><span class="nx">readBool</span><span class="p">({</span><span class="nx">name</span><span class="o">:</span><span class="s2">"MAIN.MyBoolVar"</span><span class="p">,</span> <span class="nx">jvar</span><span class="o">:</span><span class="s2">"myVar"</span><span class="p">});</span>
-</pre>
-</div>
-
+<div class="highlight"><pre><span class="nx">Plc</span><span class="p">.</span><span class="nx">readBool</span><span class="p">({</span><span class="nx">name</span><span class="o">:</span><span class="s2">"MAIN.MyBoolVar"</span><span class="p">,</span> <span class="nx">jvar</span><span class="o">:</span><span class="s2">"myVar"</span><span class="p">});</span>
+</pre></div>
 
 <p>A more complex example of reading multiple variables with a function executed after the request has successfully finished:</p>
 
-<div class="highlight">
-<pre><span class="nx">Plc</span><span class="p">.</span><span class="nx">sumReadReq</span><span class="p">({</span>
+<div class="highlight"><pre><span class="nx">Plc</span><span class="p">.</span><span class="nx">sumReadReq</span><span class="p">({</span>
     <span class="nx">items</span><span class="o">:</span> <span class="p">[</span>
         <span class="p">{</span>
             <span class="nx">name</span><span class="o">:</span> <span class="s1">'MAIN.Ramp1'</span><span class="p">,</span>
@@ -113,9 +103,7 @@
         <span class="p">}</span>
     <span class="p">}</span>
 <span class="p">});</span>
-</pre>
-</div>
-
+</pre></div>
 
 <p>Have a look at the manual for more information. TAME comes with various working examples including the PLC program, the best is to just try them out.</p>
 
