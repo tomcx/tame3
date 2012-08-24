@@ -1,5 +1,5 @@
 /*!
- * TAME [TwinCAT ADS Made Easy] V3.0
+ * TAME [TwinCAT ADS Made Easy] V3.1 alpha
  * 
  * Copyright (c) 2009-2012 Thomas Schmidt; t.schmidt.p1 at freenet.de
  * 
@@ -1147,13 +1147,13 @@ TAME.WebServiceClient = function (service) {
                 break;
             case 'REAL':
                 data = parsePlcReal(dataString);
-                if (typeof format == 'string') {
+                if (format !== undefined) {
                     data = data.toFixed(parseInt(format, 10));
                 }
                 break;
             case 'LREAL':
                 data = parsePlcLreal(dataString);
-                if (typeof format == 'string') {
+                if (format !== undefined) {
                     data = data.toFixed(parseInt(format, 10));
                 }
                 break;
@@ -1216,7 +1216,7 @@ TAME.WebServiceClient = function (service) {
                 
                 switch (type) {
                     case 'STRING':
-                        if (typeof format == 'string') {
+                        if (format !== undefined) {
                             strlen = parseInt(format, 10);
                         }
                         len = (isValidStringLen(strlen) ? strlen : len) + 1;             
@@ -1314,13 +1314,13 @@ TAME.WebServiceClient = function (service) {
                 arrType = getTypeAndFormat(item);
                 type = arrType[0];
                 format = arrType[1];
-                
+
                 //Get the length of the data types.
                 len = plcTypeLen[type];
                 
                 if (type == 'STRING') {
-                    if (typeof format == 'string') {
-                        strlen = parseInt(format, 10);
+                    if (format !== undefined) {
+                        strlen = format;
                     }
                     len = (isValidStringLen(strlen) ? strlen : len) + 1;
                 }
@@ -1865,17 +1865,19 @@ TAME.WebServiceClient = function (service) {
                 //Join the formatting string if there were points in it.
                 arr[1] = arr.slice(1).join('.');
             } 
-        } else if (symTableOk && typeof item.name == 'string'){
+        } else if (symTableOk && typeof item.name == 'string') {
             //Try to get the type from the symbol table and
             //create the item.type property 
             try {
-                arr = symTable[item.name].type.split('(');
-                if (arr[1] !== undefined) {
-                    arr[1] = arr[1].substr(0, arr[1].length - 1);
-                    item.type = arr[0] + '.' + arr[1];
-                    arr[1] = parseInt(arr[1], 10);
-                } else {
-                    item.type = arr[0];
+                arr[0] = symTable[item.name].type;
+                if (arr[0] === 'STRING') {
+                    arr[1] = symTable[item.name].stringLength;
+                } else if (typeof item.format == 'string') {
+                    arr[1] = item.format;
+                } else if (typeof item.decPlaces  == 'number') {
+                    arr[1] = item.decPlaces;
+                } else if (typeof item.dp  == 'number') {
+                    arr[1] = item.dp;
                 }
             } catch(e) {
                 try {
@@ -1898,6 +1900,92 @@ TAME.WebServiceClient = function (service) {
     //======================================================================================
     //                     Functions for Creating Request Descriptors
     //======================================================================================
+    
+    function createArrItemList() {
+        
+    }
+    
+    function createStructItemList() {
+        
+    }
+    
+    function createStructArrItemList(args, arrayLength, method, dataObj, wrtOneOnly) {
+        
+        var i = 0, j = 0, cnt = 0, items = {}, elem, defArr, lenArrElem, lastDefArr; 
+        //Although jvar isn't necessary for write requests,
+        //it's good for easier debugging.
+        for (i = 0; i < arrayLength; i++) {
+            for (elem in args.def) {
+                defArr = args.def[elem].split('.');
+                
+                if (defArr[0] == 'ARRAY') {
+                    lenArrElem = parseInt(defArr[1], 10);
+                    lastDefArr = defArr.length - 1;
+                    
+                    for (j = 0; j < lenArrElem; j++) {
+                        if (defArr[lastDefArr] == 'SP') {
+                            items[cnt] = {
+                                jvar: i + '.' + elem + j
+                            };
+                            if (lastDefArr === 4) {
+                                items[cnt].type = defArr[2] + '.' + defArr[3];
+                            } else {
+                                items[cnt].type = defArr[2];
+                            }
+                        } else {
+                            items[cnt] = {
+                                jvar: i + '.' + elem + '.' + j
+                            };
+                            if (lastDefArr === 3) {
+                                items[cnt].type = defArr[2] + '.' + defArr[3];
+                            } else {
+                                items[cnt].type = defArr[2];
+                            }
+                        }
+                        
+                        if (method === 'Write') {
+                            if (wrtOneOnly) {
+                                if (defArr[lastDefArr] == 'SP') {
+                                    items[cnt].val = dataObj[args.item][elem + j];
+                                } else {
+                                    items[cnt].val = dataObj[args.item][elem][j];
+                                }
+                            } else {
+                                if (defArr[lastDefArr] == 'SP') {
+                                    items[cnt].val = dataObj[i][elem + j];
+                                } else {
+                                    items[cnt].val = dataObj[i][elem][j];
+                                }
+                            }
+                        }
+                        cnt++;
+                    }
+                } else {
+                    items[cnt] = {
+                        jvar: i + '.' + elem,
+                        type: args.def[elem]
+                    };
+                    if (method === 'Write') {
+                        if (wrtOneOnly) {
+                            items[cnt].val = dataObj[args.item][elem];
+                        } else {
+                            items[cnt].val = dataObj[i][elem];
+                        }
+                    }
+                    cnt++;
+                }  
+            }
+            //Set an item as a mark at the end of the structure
+            //for inserting padding bytes in "writeReq" and "readReq" later.
+            if (dataAlign4 === true) {
+                items[cnt]= {
+                    type: 'EndStruct',
+                    val: endPadLen
+                };
+                cnt++;
+            }
+        }
+    }
     
     /**
      * Create the Request Descriptor for a single variable. An item list
@@ -1929,8 +2017,8 @@ TAME.WebServiceClient = function (service) {
                 } else if (symTableOk === true) {
                     //Get the string length from the symbol table.
                     try {
-                        len = parseInt(symTable[args.name].type.substring(7, symTable[args.name].type.length - 1), 10);
-                        type += '.' + len;   
+                        len = symTable[args.name].stringLength;
+                        type += '.' + len;
                     } catch(e) {
                         try {
                             console.log('TAME library error: A problem occured while reading the string length from the symbol table!');
@@ -2047,10 +2135,7 @@ TAME.WebServiceClient = function (service) {
         } else if (symTableOk === true) {
             //Get the array length from the symbol table.
             try {
-                arrSymType = symTable[args.name].type.split(" ");
-                arrayLength = arrSymType[1].substring(1, arrSymType[1].length - 1);
-                arrayLength = arrayLength.split('..');
-                arrayLength = parseInt(arrayLength[1], 10) - parseInt(arrayLength[0], 10) + 1;
+                arrayLength = symTable[args.name].arrayLength;
             } catch(e) {
                 try {
                     console.log('TAME library error: A proble occured while reading the array length from the symbol table!');
@@ -2254,7 +2339,7 @@ TAME.WebServiceClient = function (service) {
                         len = args.strlen;
                     } else if (symTableOk === true) {
                         //Get the lenth from the symbol table.
-                        len = parseInt(arrSymType[3].substring(7, arrSymType[3].length - 1), 10);
+                        len = symTable[args.name].stringLength;
                         type += '.' + len;
                     }
                     len++; //Termination
@@ -2300,7 +2385,7 @@ TAME.WebServiceClient = function (service) {
                 dataObj: dataObj,
                 items: []
             };
-            
+                      
             //Create the item list.
             //Although jvar isn't necessary for write requests,
             //it's good for easier debugging.
@@ -2650,6 +2735,7 @@ TAME.WebServiceClient = function (service) {
             type = arrType[0];
             format = arrType[1];
             
+            /*
             //Add formatting if it's passed and not already set
             switch (type) {
                 case 'TIME':
@@ -2672,16 +2758,15 @@ TAME.WebServiceClient = function (service) {
                     }
                     break;
             }
-            
+            */
             //Length of the data type.
             if (type == 'STRING') {
-                //If no length is given, set it to 80 characters (TwinCAT default).                 
+                //If no length is given, set it to 80 characters (TwinCAT default).             
                 len = (format === undefined) ? plcTypeLen.STRING : parseInt(format,10);
                 len++; //Termination
             } else {
                 len = plcTypeLen[type];
             }
-
             reqDescr.readLength += len;
          
             //Build the request buffer.
@@ -2954,7 +3039,7 @@ TAME.WebServiceClient = function (service) {
         ioOffs = 8,
         sizeOffs = 12,
         nameOffs = 30,
-        dataString, dataSubString, data, cnt, infoLen, nameAndType;
+        dataString, dataSubString, data, cnt, infoLen, nameAndType, typeArr, arrayLength, type;
         
         try {
             dataString = decodeBase64(response.getElementsByTagName('ppData')[0].firstChild.data);
@@ -2969,11 +3054,49 @@ TAME.WebServiceClient = function (service) {
                 
                 //Create an entry.
                 symTable[nameAndType[0]] = {
-                    type: nameAndType[1],
+                    typeString: nameAndType[1],
                     indexGroup: subStringToData(dataString.substr(strAddr + igOffs, 4), 'DWORD'),                    
                     indexOffset: subStringToData(dataString.substr(strAddr + ioOffs, 4), 'DWORD'),                   
                     size: subStringToData(dataString.substr(strAddr + sizeOffs, 4), 'DWORD')
                 };
+                
+                //Set additional information.
+                typeArr = nameAndType[1].split(" ");
+                if (typeArr[0] === 'ARRAY') {
+                    
+                    //Type
+                    symTable[nameAndType[0]].type = typeArr[0];
+                    
+                    //Array Length
+                    arrayLength = typeArr[1].substring(1, typeArr[1].length - 1);
+                    arrayLength = arrayLength.split('..');
+                    arrayLength = parseInt(arrayLength[1], 10) - parseInt(arrayLength[0], 10) + 1;
+                    symTable[nameAndType[0]].arrayLength = arrayLength;
+                    
+                    
+                    //Data type of the array.
+                    type = typeArr[3].split('(');
+                    if (type[1] !== undefined) {
+                        type[1] = type[1].substr(0, type[1].length - 1);
+                        symTable[nameAndType[0]].fullType = typeArr[0] + '.' + arrayLength + '.' + type[0] + '.' + type[1];
+                        symTable[nameAndType[0]].stringLength = parseInt(type[1], 10);
+                    } else {
+                        symTable[nameAndType[0]].fullType = typeArr[0] + '.' + arrayLength + '.' + type[0];
+                    }
+                    symTable[nameAndType[0]].arrayDataType = type[0];
+
+                } else {
+                    type = typeArr[0].split('(');
+                    if (type[1] !== undefined) {
+                        type[1] = type[1].substr(0, type[1].length - 1);
+                        symTable[nameAndType[0]].fullType = type[0] + '.' + type[1];
+                        symTable[nameAndType[0]].stringLength = parseInt(type[1], 10);
+                    } else {
+                        symTable[nameAndType[0]].fullType = type[0];
+                    }
+                    symTable[nameAndType[0]].type = type[0];
+
+                }
                 
                 strAddr += infoLen;
             }
