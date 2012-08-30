@@ -84,6 +84,7 @@ TAME.WebServiceClient = function (service) {
             TOD: 4,       //time base in PLC: milliseconds
             DATE: 4,      //time base in PLC: seconds
             DT: 4,        //time base in PLC: seconds
+            POINTER: 4,
             REAL: 4,
             LREAL: 8,
             STRING: 80,    //without termination
@@ -225,13 +226,14 @@ TAME.WebServiceClient = function (service) {
      */
     function numToByteArr(value, varlen) {
         var bytes = [],
-            hex = value.toString(16);
+            hex = value.toString(16),
+            i;
 
         while (hex.length < varlen * 2) {
             hex = '0' + hex;
         }
         
-        for (var i = 0; i < varlen; i++) {
+        for (i = 0; i < varlen; i++) {
             bytes[(varlen - 1) - i] = 
                 ((charcodeToDual(hex.charCodeAt(i * 2)) * 16) + 
                   charcodeToDual(hex.charCodeAt((i * 2) + 1)));
@@ -248,13 +250,13 @@ TAME.WebServiceClient = function (service) {
 
         var mant = 0,
             real = 0,
-            bas, abs, tmp, exp;
+            bas, abs, tmp, exp, i;
         
         abs = Math.abs(num);
         
         if (num !== 0) {
             //Find exponent and base.
-            for (var i = 128; i > -127; i--) {
+            for (i = 128; i > -127; i--) {
                 tmp = abs / Math.pow(2, i);
                 if (tmp >= 2) {
                     break;
@@ -299,13 +301,13 @@ TAME.WebServiceClient = function (service) {
                 part1: 0,
                 part2: 0
             },
-            abs, tmp, exp, firstbit, bas;
+            abs, tmp, exp, firstbit, bas, i;
              
         abs = Math.abs(num);
         
         if (num !== 0) {          
             //Find exponent and base.
-            for (var i = 1024; i >= -1023; i--) {
+            for (i = 1024; i >= -1023; i--) {
                 tmp = abs / Math.pow(2, i);
                 if (tmp >= 2) {
                     break;
@@ -756,7 +758,7 @@ TAME.WebServiceClient = function (service) {
         var mant = 1, 
             dual = 0.5,
             num = parsePlcUdint(string),
-            sign, exp;
+            sign, exp, i;
         
         //Return if value is zero. 
         if (num === 0) {
@@ -769,7 +771,7 @@ TAME.WebServiceClient = function (service) {
         exp = (num >>> 24) - 127;
         //Calculate the 23 bit mantissa: Shift bits to left and evaluate them.
         num <<= 8;
-        for (var i = 1; i <= 23; i++) {
+        for (i = 1; i <= 23; i++) {
             mant += num < 0 ? dual : 0; //Add if left (sign bit) bit is true.
             num <<= 1;
             dual /= 2;
@@ -883,9 +885,9 @@ TAME.WebServiceClient = function (service) {
         var arr = format.split('#'),
             arrlen = arr.length,
             tstring = '',
-            tmp;
+            tmp, i;
             
-        for (var i = 1; i < arrlen; i++) {
+        for (i = 1; i < arrlen; i++) {
             
             switch (arr[i]) {
                 //Date formatting.
@@ -976,9 +978,9 @@ TAME.WebServiceClient = function (service) {
         var arr = format.split('#'),
             arrlen = arr.length,
             tstring = '',
-            tmp;
+            tmp, i;
             
-        for (var i = 1; i < arrlen; i++) {
+        for (i = 1; i < arrlen; i++) {
             
             switch (arr[i]) {
                 case 'd':
@@ -1279,7 +1281,7 @@ TAME.WebServiceClient = function (service) {
         itemList = adsReq.reqDescr.items,
         arrType = [],
         strAddr = 0,
-        item, dataString, dataSubString, data, strlen, len, type, format, idx, listlen, errorCode;
+        item, dataString, dataSubString, data, len, type, format, idx, listlen, errorCode;
         
     
         try {
@@ -1316,15 +1318,8 @@ TAME.WebServiceClient = function (service) {
                 format = arrType[1];
 
                 //Get the length of the data types.
-                len = plcTypeLen[type];
-                
-                if (type == 'STRING') {
-                    if (format !== undefined) {
-                        strlen = format;
-                    }
-                    len = (isValidStringLen(strlen) ? strlen : len) + 1;
-                }
-                
+                len = symTable[item.name].size;
+               
                 //Slice the string and decode the data
                 dataSubString = dataString.substr(strAddr, len);
                 data = subStringToData(dataSubString, type, format);
@@ -2735,38 +2730,10 @@ TAME.WebServiceClient = function (service) {
             type = arrType[0];
             format = arrType[1];
             
-            /*
-            //Add formatting if it's passed and not already set
-            switch (type) {
-                case 'TIME':
-                case 'TOD':
-                case 'DT':
-                case 'DATE':
-                    //Append the format string to the data type.
-                    if (typeof item.format == 'string' && format === undefined) {
-                        item.type += '.' + item.format;
-                    }
-                    break;
-                case 'REAL':
-                case 'LREAL':
-                    //Append the number of decimal places to the data type.
-                    if (typeof item.decPlaces  == 'number' && format === undefined) {
-                        item.type += '.' + item.decPlaces;
-                        
-                    } else if (typeof item.dp  == 'number' && format === undefined) {
-                        item.type += '.' + item.dp;
-                    }
-                    break;
-            }
-            */
+
             //Length of the data type.
-            if (type == 'STRING') {
-                //If no length is given, set it to 80 characters (TwinCAT default).             
-                len = (format === undefined) ? plcTypeLen.STRING : parseInt(format,10);
-                len++; //Termination
-            } else {
-                len = plcTypeLen[type];
-            }
+            len = symTable[item.name].size;
+            
             reqDescr.readLength += len;
          
             //Build the request buffer.
@@ -2810,7 +2777,7 @@ TAME.WebServiceClient = function (service) {
         try { 
             console.log(symTable);
         } catch(e) {}
-    }
+    };
 
 
     /**
@@ -3039,7 +3006,7 @@ TAME.WebServiceClient = function (service) {
         ioOffs = 8,
         sizeOffs = 12,
         nameOffs = 30,
-        dataString, dataSubString, data, cnt, infoLen, nameAndType, typeArr, arrayLength, type;
+        dataString, dataSubString, data, cnt, infoLen, nameAndType, typeArr, arrayLength, type, elem;
         
         try {
             dataString = decodeBase64(response.getElementsByTagName('ppData')[0].firstChild.data);
@@ -3062,6 +3029,7 @@ TAME.WebServiceClient = function (service) {
                 
                 //Set additional information.
                 typeArr = nameAndType[1].split(" ");
+                
                 if (typeArr[0] === 'ARRAY') {
                     
                     //Type
@@ -3075,7 +3043,7 @@ TAME.WebServiceClient = function (service) {
                     
                     
                     //Data type of the array.
-                    type = typeArr[3].split('(');
+                    type = typeArr[3].split('(');                    
                     if (type[1] !== undefined) {
                         type[1] = type[1].substr(0, type[1].length - 1);
                         symTable[nameAndType[0]].fullType = typeArr[0] + '.' + arrayLength + '.' + type[0] + '.' + type[1];
@@ -3083,20 +3051,37 @@ TAME.WebServiceClient = function (service) {
                     } else {
                         symTable[nameAndType[0]].fullType = typeArr[0] + '.' + arrayLength + '.' + type[0];
                     }
-                    symTable[nameAndType[0]].arrayDataType = type[0];
+                    
+                    //Check if variable is a user defined data type,
+                    symTable[nameAndType[0]].arrayDataType = 'USER';
+                    for (elem in plcTypeLen) {
+                        if (type[0] === elem) {
+                            symTable[nameAndType[0]].arrayDataType = type[0];
+                        }
+                    }
 
                 } else {
                     type = typeArr[0].split('(');
+                    
                     if (type[1] !== undefined) {
+                        //String
                         type[1] = type[1].substr(0, type[1].length - 1);
                         symTable[nameAndType[0]].fullType = type[0] + '.' + type[1];
                         symTable[nameAndType[0]].stringLength = parseInt(type[1], 10);
                     } else {
                         symTable[nameAndType[0]].fullType = type[0];
                     }
-                    symTable[nameAndType[0]].type = type[0];
-
+                    
+                    //Check if variable is a user defined data type,
+                    symTable[nameAndType[0]].type = 'USER';
+                    
+                    for (elem in plcTypeLen) {
+                        if (type[0] === elem) {
+                            symTable[nameAndType[0]].type = type[0];
+                        }
+                    }
                 }
+                
                 
                 strAddr += infoLen;
             }
@@ -3122,7 +3107,7 @@ TAME.WebServiceClient = function (service) {
   
         var xmlHttpReq = createXMLHttpReq(),
         symbolXmlArray = [],
-        symFile, name, allSymbols;
+        symFile, name, allSymbols, i;
         
         //Synchronous HTTPRequest
         xmlHttpReq.open('GET', service.symFileUrl, false);
@@ -3139,7 +3124,7 @@ TAME.WebServiceClient = function (service) {
                 
                 //Get the name of the symbol and create an object property with it.
                 //symTable is declared outside in the constructor function.
-                for (var i = 0; i < symbolXmlArray.length; i++) {
+                for (i = 0; i < symbolXmlArray.length; i++) {
                     name = symbolXmlArray[i].getElementsByTagName('Name')[0].childNodes[0].nodeValue.toUpperCase();
                     symTable[name] = {
                         type: symbolXmlArray[i].getElementsByTagName('Type')[0].childNodes[0].nodeValue.toUpperCase(),
