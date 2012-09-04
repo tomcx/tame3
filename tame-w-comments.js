@@ -1339,28 +1339,23 @@ TAME.WebServiceClient = function (service) {
                                 lenArrElem = parseInt(defArr[1], 10);
                                 lastDefArr = defArr.length - 1;
                                 for (j = 0; j < lenArrElem; j++) {
+                                    type = defArr[2];
                                     if (defArr[lastDefArr] === 'SP') {
                                         jvar = elem + j;
-                                        if (lastDefArr === 4) {
-                                            type = defArr[2];
-                                            format = defArr[3];
-                                        } else {
-                                            type = defArr[2];
+                                        if (lastDefArr >= 4) {
+                                            format = defArr.slice(3, -1).join('.');
                                         }
                                     } else {
                                         jvar = elem + '.' + j;
-                                        if (lastDefArr === 3) {
-                                            type = defArr[2];
-                                            format = defArr[3];
-                                        } else {
-                                            type = defArr[2];
+                                        if (lastDefArr >= 3) {
+                                            format = defArr.slice(3).join('.');
                                         }
                                     }
                                 }
                             } else {
                                 jvar = elem;
                                 type = defArr[0];
-                                format = defArr[1];
+                                format = defArr.slice(1).join('.');
                             }
                             
                             //Get the length of the data types.
