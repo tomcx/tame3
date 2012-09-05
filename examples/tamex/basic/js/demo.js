@@ -7,6 +7,8 @@
 var field1, field2, field5, field6, field7, field8, field9, 
     field10, field11, field12, field13, field20, field21,
     counter1, counter2, pollZyk1, runLight = [];
+    
+    var structest = {};
 
 
 window.onload = function() {
@@ -99,6 +101,16 @@ window.onload = function() {
      */  
     counter1 = document.getElementById('ramp1').firstChild;
     counter2 = document.getElementById('ramp2').firstChild;
+    
+    
+    var structdef = {
+        var_1: 'BYTE',
+        var_2: 'REAL.2',
+        var_3: 'SINT',
+        var_4: 'TIME.#ms',
+        var_5: 'ARRAY.5.STRING.6', //Array of 5 strings with 6 chars
+        var_6: 'INT'
+    };
      
     //This function reads the data of the variables 
     //an calls itself again. Of course you can use "setInterval" instead.
@@ -171,7 +183,12 @@ window.onload = function() {
                 },{
                     name: '.In_REAL',
                     jvar: 'field21.data'
+                },{
+                    name: '.TestStruct',
+                    jvar: 'structest',
+                    def: structdef
                 }
+                
                 
             ],
             oc: function() {
@@ -186,7 +203,7 @@ window.onload = function() {
             }
         });
         
-        window.setTimeout('pollZyk1()', 100); //Timeout 100 ms
+        window.setTimeout('pollZyk1()', 10000); //Timeout 100 ms
     };
 
     

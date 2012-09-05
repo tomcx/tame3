@@ -1281,8 +1281,45 @@ TAME.WebServiceClient = function (service) {
         itemList = adsReq.reqDescr.items,
         arrType = [],
         strAddr = 0,
-        item, dataString, dataSubString, data, len, type, format, idx, listlen, errorCode;
+        subStrAddr = 0,
+        dataObj = window,
+        item, dataString, dataSubString, data, len, type, format, idx, listlen, errorCode, jvar, j,
+        elem, defArr, lenArrElem, lastDefArr, subStrSlice;
         
+        function parseSubStringData() {
+            
+            var strlen, plen, mod;
+            
+            //Get the length of the data types.
+            len = plcTypeLen[type];
+            
+            if (type === 'STRING') {
+                if (format !== undefined) {
+                    strlen = parseInt(format, 10);
+                }
+                len = (isValidStringLen(strlen) ? strlen : len) + 1;             
+            }
+            
+            //Set the length for calculating padding bytes
+            plen = len < 4 ? len : 4;
+            
+            if (dataAlign4 === true && plen > 1 && type !== 'STRING' && subStrAddr > 0) {
+                //Compute the address for a 4-byte alignment.
+                mod = subStrAddr % plen;
+                if (mod > 0) {
+                    subStrAddr += plen - mod;
+                }
+            }
+            
+            //Take a piece of the data sub string
+            subStrSlice = dataSubString.substr(subStrAddr, len);
+            //Convert the data
+            data = subStringToData(subStrSlice, type, format);
+            //Parse the name of the JavaScript variable and write the data to it
+            parseVarName(jvar, data, dataObj, item.prefix, item.suffix);
+            
+            subStrAddr += len;
+        }
     
         try {
 
@@ -1319,15 +1356,52 @@ TAME.WebServiceClient = function (service) {
 
                 //Get the length of the data types.
                 len = symTable[item.name].size;
-               
+                
                 //Slice the string and decode the data
                 dataSubString = dataString.substr(strAddr, len);
-                data = subStringToData(dataSubString, type, format);
                 
-                //Parse the name of the JavaScript variable and write the data to it
-                parseVarName(item.jvar, data, adsReq.reqDescr.dataObj, item.prefix, item.suffix);
-
-                //Set the next string address
+                switch (type) {
+                    
+                    case 'ARRAY': 
+                        break;
+                    case 'USER' :
+                        dataObj = parseVarName(item.jvar);
+                        subStrAddr = 0;
+                        for (elem in item.def) {
+                            defArr = item.def[elem].split('.');
+                            if (defArr[0] === 'ARRAY') {
+                                lenArrElem = parseInt(defArr[1], 10);
+                                lastDefArr = defArr.length - 1;
+                                for (j = 0; j < lenArrElem; j++) {
+                                    type = defArr[2];
+                                    if (defArr[lastDefArr] === 'SP') {
+                                        jvar = elem + j;
+                                        if (lastDefArr >= 4) {
+                                            format = defArr.slice(3, -1).join('.');
+                                        }
+                                    } else {
+                                        jvar = elem + '.' + j;
+                                        if (lastDefArr >= 3) {
+                                            format = defArr.slice(3).join('.');
+                                        }
+                                    }
+                                    parseSubStringData();
+                                }
+                            } else {
+                                jvar = elem;
+                                type = defArr[0];
+                                format = defArr.slice(1).join('.');
+                                parseSubStringData();
+                            }  
+                        }
+                        break;
+                    default:
+                        //Convert the data
+                        data = subStringToData(dataSubString, type, format);
+                        //Parse the name of the JavaScript variable and write the data to it
+                        parseVarName(item.jvar, data, dataObj, item.prefix, item.suffix);                  
+                }
+               //Set the next string address
                 strAddr += len;
 
             }

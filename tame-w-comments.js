@@ -1284,8 +1284,42 @@ TAME.WebServiceClient = function (service) {
         subStrAddr = 0,
         dataObj = window,
         item, dataString, dataSubString, data, len, type, format, idx, listlen, errorCode, jvar, j,
-        elem, defArr, lenArrElem, lastDefArr, plen;
+        elem, defArr, lenArrElem, lastDefArr, subStrSlice;
         
+        function parseSubStringData() {
+            
+            var strlen, plen, mod;
+            
+            //Get the length of the data types.
+            len = plcTypeLen[type];
+            
+            if (type === 'STRING') {
+                if (format !== undefined) {
+                    strlen = parseInt(format, 10);
+                }
+                len = (isValidStringLen(strlen) ? strlen : len) + 1;             
+            }
+            
+            //Set the length for calculating padding bytes
+            plen = len < 4 ? len : 4;
+            
+            if (dataAlign4 === true && plen > 1 && type !== 'STRING' && subStrAddr > 0) {
+                //Compute the address for a 4-byte alignment.
+                mod = subStrAddr % plen;
+                if (mod > 0) {
+                    subStrAddr += plen - mod;
+                }
+            }
+            
+            //Take a piece of the data sub string
+            subStrSlice = dataSubString.substr(subStrAddr, len);
+            //Convert the data
+            data = subStringToData(subStrSlice, type, format);
+            //Parse the name of the JavaScript variable and write the data to it
+            parseVarName(jvar, data, dataObj, item.prefix, item.suffix);
+            
+            subStrAddr += len;
+        }
     
         try {
 
@@ -1351,50 +1385,21 @@ TAME.WebServiceClient = function (service) {
                                             format = defArr.slice(3).join('.');
                                         }
                                     }
+                                    parseSubStringData();
                                 }
                             } else {
                                 jvar = elem;
                                 type = defArr[0];
                                 format = defArr.slice(1).join('.');
-                            }
-                            
-                            //Get the length of the data types.
-                            len = plcTypeLen[type];
-                            
-                            if (type == 'STRING') {
-                                if (format !== undefined) {
-                                    strlen = parseInt(format, 10);
-                                }
-                                len = (isValidStringLen(strlen) ? strlen : len) + 1;             
-                            }
-                            
-                            //Set the length for calculating padding bytes
-                            plen = len < 4 ? len : 4;
-                            
-                            if (dataAlign4 === true && plen > 1 && type != 'STRING' && subStrAddr > 0) {
-                                //Compute the address for a 4-byte alignment.
-                                mod = strAddr % plen;
-                                if (mod > 0) {
-                                    strAddr += plen - mod;
-                                }
-                            }
-                            
-                            //Take a piece of the data sub string
-                            subStrSlice = dataSubString.substr(subStrAddr, len);
-                            //Convert the data
-                            data = subStringToData(dataSubString, type, format);
-                            //Parse the name of the JavaScript variable and write the data to it
-                            parseVarName(jvar, data, dataObj, item.prefix, item.suffix);
-                            
-                            subStrAddr += len;
+                                parseSubStringData();
+                            }  
                         }
                         break;
                     default:
                         //Convert the data
                         data = subStringToData(dataSubString, type, format);
                         //Parse the name of the JavaScript variable and write the data to it
-                        parseVarName(item.jvar, data, dataObj, item.prefix, item.suffix);
-                    
+                        parseVarName(item.jvar, data, dataObj, item.prefix, item.suffix);                  
                 }
                //Set the next string address
                 strAddr += len;
