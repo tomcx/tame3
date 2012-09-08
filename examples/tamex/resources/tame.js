@@ -1,5 +1,5 @@
 /*!
- * TAME [TwinCAT ADS Made Easy] V3.1 alpha
+ * TAME [TwinCAT ADS Made Easy] V3.1 beta
  * 
  * Copyright (c) 2009-2012 Thomas Schmidt; t.schmidt.p1 at freenet.de
  * 
@@ -1283,32 +1283,45 @@ TAME.WebServiceClient = function (service) {
         strAddr = 0,
         subStrAddr = 0,
         dataObj = window,
-        item, dataString, dataSubString, data, len, type, format, idx, listlen, errorCode, jvar, j,
-        elem, defArr, lenArrElem, lastDefArr, subStrSlice;
+        item, dataString, dataSubString, data, len, type, format, idx, listlen, errorCode, jvar, i,
+        elem, arrayLength, vlenMax, itemSize;
         
-        function parseSubStringData() {
+        function checkAlignment() {
             
-            var strlen, plen, mod;
+            var vlen, mod;
             
-            //Get the length of the data types.
-            len = plcTypeLen[type];
+            if (dataAlign4 === true && type !== 'STRING') {
+                //Set the length for calculating padding bytes
+                vlen = len < 4 ? len : 4;
+                
+                //Compute the address for a 4-byte alignment.
+                if (vlen > 1 && subStrAddr > 0) {
+                    mod = subStrAddr % vlen;
+                    if (mod > 0) {
+                        subStrAddr += vlen - mod;
+                    }
+                }
+                
+                //Store the maximum length of the PLC variables
+                //for inserting padding bytes at the end of the structure.
+                if (vlen > vlenMax) {
+                    vlenMax = vlen;
+                }
+                 
+            }
+        }
+        
+        function parseSubStringSlice() {
             
+            var strlen, subStrSlice;
+
             if (type === 'STRING') {
                 if (format !== undefined) {
                     strlen = parseInt(format, 10);
+                } else if (typeof symTable[item.name].stringLength === 'number') {
+                    strlen = symTable[item.name].stringLength;
                 }
                 len = (isValidStringLen(strlen) ? strlen : len) + 1;             
-            }
-            
-            //Set the length for calculating padding bytes
-            plen = len < 4 ? len : 4;
-            
-            if (dataAlign4 === true && plen > 1 && type !== 'STRING' && subStrAddr > 0) {
-                //Compute the address for a 4-byte alignment.
-                mod = subStrAddr % plen;
-                if (mod > 0) {
-                    subStrAddr += plen - mod;
-                }
             }
             
             //Take a piece of the data sub string
@@ -1320,6 +1333,65 @@ TAME.WebServiceClient = function (service) {
             
             subStrAddr += len;
         }
+        
+        function parseStructure() {
+            
+            var j, defArr, lenArrElem, lastDefArr;
+            
+            for (elem in item.def) {
+                defArr = item.def[elem].split('.');
+                if (defArr[0] === 'ARRAY') {
+                    lenArrElem = parseInt(defArr[1], 10);
+                    lastDefArr = defArr.length - 1;
+                    for (j = 0; j < lenArrElem; j++) {
+                        type = defArr[2];
+                        if (defArr[lastDefArr] === 'SP') {
+                            jvar = elem + j;
+                            if (lastDefArr >= 4) {
+                                format = defArr.slice(3, -1).join('.');
+                            }
+                        } else {
+                            jvar = elem + '.' + j;
+                            if (lastDefArr >= 3) {
+                                format = defArr.slice(3).join('.');
+                            }
+                        }
+                        //Add index in case of an array of struct
+                        if (i !== undefined) {
+                            jvar = i + '.' + jvar;
+                        }
+                        
+                        len = plcTypeLen[type];
+                        checkAlignment();
+                        parseSubStringSlice();
+                    }
+                } else {
+                    //Check if we are in an array of struct
+                    if (i !== undefined) {
+                        jvar = i + '.' + elem;
+                    } else {
+                        jvar = elem;
+                    }
+                    
+                    type = defArr[0];
+                    format = defArr.slice(1).join('.');
+                    len = plcTypeLen[type];
+                    checkAlignment();
+                    parseSubStringSlice();
+                }  
+            }
+            
+             //Calculate the padding bytes at the end of the structure
+            if (dataAlign4 === true && vlenMax > 1 && type != 'STRING') {
+                if (vlenMax > 4) {
+                    vlenMax = 4;
+                }
+                mod = subStrAddr % vlenMax;
+                if (mod > 0) {
+                    subStrAddr += vlenMax - mod;
+                }
+            }
+        } 
     
         try {
 
@@ -1355,45 +1427,35 @@ TAME.WebServiceClient = function (service) {
                 format = arrType[1];
 
                 //Get the length of the data types.
-                len = symTable[item.name].size;
+                itemSize = symTable[item.name].size;
                 
                 //Slice the string and decode the data
-                dataSubString = dataString.substr(strAddr, len);
+                dataSubString = dataString.substr(strAddr, itemSize);
                 
                 switch (type) {
                     
-                    case 'ARRAY': 
+                    case 'ARRAY':
+                        dataObj = parseVarName(item.jvar);
+                        subStrAddr = 0;
+                        arrayLength = symTable[item.name].arrayLength;
+                        if (symTable[item.name].arrayDataType === 'USER') {
+                            for (i = 0; i < arrayLength; i++) {
+                                parseStructure();
+                            }
+                            
+                        } else {
+                            type = symTable[item.name].arrayDataType;
+                            len = plcTypeLen[type];
+                            for (i = 0; i < arrayLength; i++) {
+                                jvar = i;
+                                parseSubStringSlice();
+                            }
+                        }
                         break;
                     case 'USER' :
                         dataObj = parseVarName(item.jvar);
                         subStrAddr = 0;
-                        for (elem in item.def) {
-                            defArr = item.def[elem].split('.');
-                            if (defArr[0] === 'ARRAY') {
-                                lenArrElem = parseInt(defArr[1], 10);
-                                lastDefArr = defArr.length - 1;
-                                for (j = 0; j < lenArrElem; j++) {
-                                    type = defArr[2];
-                                    if (defArr[lastDefArr] === 'SP') {
-                                        jvar = elem + j;
-                                        if (lastDefArr >= 4) {
-                                            format = defArr.slice(3, -1).join('.');
-                                        }
-                                    } else {
-                                        jvar = elem + '.' + j;
-                                        if (lastDefArr >= 3) {
-                                            format = defArr.slice(3).join('.');
-                                        }
-                                    }
-                                    parseSubStringData();
-                                }
-                            } else {
-                                jvar = elem;
-                                type = defArr[0];
-                                format = defArr.slice(1).join('.');
-                                parseSubStringData();
-                            }  
-                        }
+                        parseStructure();
                         break;
                     default:
                         //Convert the data
@@ -1402,7 +1464,7 @@ TAME.WebServiceClient = function (service) {
                         parseVarName(item.jvar, data, dataObj, item.prefix, item.suffix);                  
                 }
                //Set the next string address
-                strAddr += len;
+                strAddr += itemSize;
 
             }
         } catch (e) {
@@ -1970,91 +2032,6 @@ TAME.WebServiceClient = function (service) {
     //                     Functions for Creating Request Descriptors
     //======================================================================================
     
-    function createArrItemList() {
-        
-    }
-    
-    function createStructItemList() {
-        
-    }
-    
-    function createStructArrItemList(args, arrayLength, method, dataObj, wrtOneOnly) {
-        
-        var i = 0, j = 0, cnt = 0, items = {}, elem, defArr, lenArrElem, lastDefArr; 
-        //Although jvar isn't necessary for write requests,
-        //it's good for easier debugging.
-        for (i = 0; i < arrayLength; i++) {
-            for (elem in args.def) {
-                defArr = args.def[elem].split('.');
-                
-                if (defArr[0] == 'ARRAY') {
-                    lenArrElem = parseInt(defArr[1], 10);
-                    lastDefArr = defArr.length - 1;
-                    
-                    for (j = 0; j < lenArrElem; j++) {
-                        if (defArr[lastDefArr] == 'SP') {
-                            items[cnt] = {
-                                jvar: i + '.' + elem + j
-                            };
-                            if (lastDefArr === 4) {
-                                items[cnt].type = defArr[2] + '.' + defArr[3];
-                            } else {
-                                items[cnt].type = defArr[2];
-                            }
-                        } else {
-                            items[cnt] = {
-                                jvar: i + '.' + elem + '.' + j
-                            };
-                            if (lastDefArr === 3) {
-                                items[cnt].type = defArr[2] + '.' + defArr[3];
-                            } else {
-                                items[cnt].type = defArr[2];
-                            }
-                        }
-                        
-                        if (method === 'Write') {
-                            if (wrtOneOnly) {
-                                if (defArr[lastDefArr] == 'SP') {
-                                    items[cnt].val = dataObj[args.item][elem + j];
-                                } else {
-                                    items[cnt].val = dataObj[args.item][elem][j];
-                                }
-                            } else {
-                                if (defArr[lastDefArr] == 'SP') {
-                                    items[cnt].val = dataObj[i][elem + j];
-                                } else {
-                                    items[cnt].val = dataObj[i][elem][j];
-                                }
-                            }
-                        }
-                        cnt++;
-                    }
-                } else {
-                    items[cnt] = {
-                        jvar: i + '.' + elem,
-                        type: args.def[elem]
-                    };
-                    if (method === 'Write') {
-                        if (wrtOneOnly) {
-                            items[cnt].val = dataObj[args.item][elem];
-                        } else {
-                            items[cnt].val = dataObj[i][elem];
-                        }
-                    }
-                    cnt++;
-                }  
-            }
-            //Set an item as a mark at the end of the structure
-            //for inserting padding bytes in "writeReq" and "readReq" later.
-            if (dataAlign4 === true) {
-                items[cnt]= {
-                    type: 'EndStruct',
-                    val: endPadLen
-                };
-                cnt++;
-            }
-        }
-    }
     
     /**
      * Create the Request Descriptor for a single variable. An item list
@@ -3125,6 +3102,9 @@ TAME.WebServiceClient = function (service) {
                     } else {
                         symTable[nameAndType[0]].fullType = typeArr[0] + '.' + arrayLength + '.' + type[0];
                     }
+                    
+                    //Item length
+                    symTable[nameAndType[0]].itemSize = symTable[nameAndType[0]].size / arrayLength;
                     
                     //Check if variable is a user defined data type,
                     symTable[nameAndType[0]].arrayDataType = 'USER';

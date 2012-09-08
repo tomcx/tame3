@@ -9,6 +9,8 @@ var field1, field2, field5, field6, field7, field8, field9,
     counter1, counter2, pollZyk1, runLight = [];
     
     var structest = {};
+    var arrtest = [];
+    var structArrTest = [];
 
 
 window.onload = function() {
@@ -111,6 +113,14 @@ window.onload = function() {
         var_5: 'ARRAY.5.STRING.6', //Array of 5 strings with 6 chars
         var_6: 'INT'
     };
+    
+    var structdef2 = {
+        var_1: 'STRING.5',
+        var_2: 'REAL.2',
+        var_3: 'SINT',
+        var_4: 'INT',
+        var_5: 'ARRAY.5.BYTE'
+    };
      
     //This function reads the data of the variables 
     //an calls itself again. Of course you can use "setInterval" instead.
@@ -187,6 +197,13 @@ window.onload = function() {
                     name: '.TestStruct',
                     jvar: 'structest',
                     def: structdef
+                },{
+                    name: '.ArrayOfString',
+                    jvar: 'arrtest'
+                },{
+                    name: '.ArrayOfTestStruct2',
+                    jvar: 'structArrTest',
+                    def: structdef2
                 }
                 
                 
