@@ -1286,6 +1286,11 @@ TAME.WebServiceClient = function (service) {
         item, dataString, dataSubString, data, len, type, format, idx, listlen, errorCode, jvar, i,
         elem, arrayLength, vlenMax, itemSize;
         
+        
+        /**
+         * Function for adjusting the address of the data in the string
+         * if a 4-byte-alignment is used. 
+         */
         function checkAlignment() {
             
             var vlen, mod;
@@ -1311,6 +1316,10 @@ TAME.WebServiceClient = function (service) {
             }
         }
         
+        /**
+         * Slice a piece out of the substring, convert the data and write it
+         * to the JavaScript variable.  
+         */
         function parseSubStringSlice() {
             
             var strlen, subStrSlice;
@@ -1334,6 +1343,10 @@ TAME.WebServiceClient = function (service) {
             subStrAddr += len;
         }
         
+        /*
+         * Parse the stucture definition an compute the data of
+         * the substring.
+         */
         function parseStructure() {
             
             var j, defArr, lenArrElem, lastDefArr;
@@ -3156,7 +3169,7 @@ TAME.WebServiceClient = function (service) {
     /**
      * Get the symbol-file (*.tpy) from the server and create
      * an object (symTable) with the symbol names as the properties. 
-     */    
+     */
     function getSymFile() {
   
         var xmlHttpReq = createXMLHttpReq(),
