@@ -1,3 +1,20 @@
+                       TAME V3.1b2 Release Notes 
+                       -------------------------
+                       
+- New feature: Options for using synchronous XMLHttpRequests added. Especially
+  intented for Tasker scripts (Android).           
+
+
+
+
+                       TAME V3.1b Release Notes 
+                       -------------------------
+                       
+- New feature: The SumReadReq supports arrays and structures now.           
+
+
+
+
                        TAME V3.0 Release Notes 
                        -------------------------
                        

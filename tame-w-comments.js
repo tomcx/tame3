@@ -1,5 +1,5 @@
 /*!
- * TAME [TwinCAT ADS Made Easy] V3.1 beta
+ * TAME [TwinCAT ADS Made Easy] V3.1 beta 2
  * 
  * Copyright (c) 2009-2012 Thomas Schmidt; t.schmidt.p1 at freenet.de
  * 
@@ -167,7 +167,6 @@ TAME.WebServiceClient = function (service) {
         } catch(e) {}
         return;
     }
-    
     
     
     
@@ -1789,10 +1788,10 @@ TAME.WebServiceClient = function (service) {
         
         adsReq.send = function() {
             
-            var soapReq;
+            var soapReq, async;
 
             //Cancel the request, if the last on with the same ID is not finished.
-            if (typeof this.reqDescr.id == 'number' && currReq[this.reqDescr.id] > 0) {
+            if (typeof this.reqDescr.id === 'number' && currReq[this.reqDescr.id] > 0) {
                 try {
                     console.log('TAME library warning: Request dropped (last request with ID ' + adsReq.reqDescr.id + ' not finished!)');
                 } catch(e) {}
@@ -1803,6 +1802,21 @@ TAME.WebServiceClient = function (service) {
                 //Automatic acknowleding after a count of 'maxDropReq' to
                 //prevent stucking.
                 currReq[this.reqDescr.id] = 0;
+            }
+            
+            //Check if this should be a synchronous or a asynchronous XMLHttpRequest
+            //adsReq.sync is used internal and it's most important, then comes reqDescr.sync and
+            //at last the global service parameter 
+            if (adsReq.sync === true) {
+                async = false;
+            } else if (this.reqDescr.sync === true) {
+                async = false;
+            } else if (this.reqDescr.sync === false) {
+                async = true;
+            } else if (service.syncXmlHttp === true) {
+                async = false;
+            } else {
+                async = true;
             }
                 
             //Create the XMLHttpRequest object.
@@ -1845,31 +1859,29 @@ TAME.WebServiceClient = function (service) {
             soapReq += '></soap:Body></soap:Envelope>';
             
             //Send the AJAX request.
-            if (typeof this.xmlHttpReq == 'object') {
+            if (typeof this.xmlHttpReq === 'object') {
     
-                this.xmlHttpReq.open('POST', url, (adsReq.sync === true ? false : true));
+                this.xmlHttpReq.open('POST', url, async);
     
                 this.xmlHttpReq.setRequestHeader('SOAPAction', 'http://beckhoff.org/action/TcAdsSync.' + this.method);
                 this.xmlHttpReq.setRequestHeader('Content-Type', 'text/xml; charset=utf-8');
                 
-                if (adsReq.sync === true) {
-                    this.xmlHttpReq.send(soapReq);
-                    instance.parseResponse(adsReq);
-                } else {
+                if (async === true) {
+                    //asynchronous request
                     this.xmlHttpReq.onreadystatechange = function() {
-                        if ((adsReq.xmlHttpReq.readyState == 4) && (adsReq.xmlHttpReq.status == 200)) {
+                        if ((adsReq.xmlHttpReq.readyState === 4) && (adsReq.xmlHttpReq.status === 200)) {
                             instance.parseResponse(adsReq);
                         }
                     };
-                    
+                    this.xmlHttpReq.send(soapReq);  
+                } else {
+                    //synchronous request
                     this.xmlHttpReq.send(soapReq);
-    
-                    
+                    instance.parseResponse(adsReq);   
                 }
     
-                
                 //Request with index 'id' sent.
-                if (typeof this.reqDescr.id == 'number') {
+                if (typeof this.reqDescr.id === 'number') {
                     currReq[this.reqDescr.id] = 1;
                 }
             }
@@ -2116,6 +2128,7 @@ TAME.WebServiceClient = function (service) {
             ocd: args.ocd,
             readLength: len,
             debug: args.debug,
+            sync: args.sync,
             seq: true,
             items: [{
                 val: args.val,
@@ -2125,6 +2138,7 @@ TAME.WebServiceClient = function (service) {
                 suffix: args.suffix
             }]
         };
+        
 
         //Call the send function.
         if (method === 'Write') {
@@ -2305,6 +2319,7 @@ TAME.WebServiceClient = function (service) {
                 seq: true,
                 dataAlign4: dataAlign4,
                 dataObj: dataObj,
+                sync: args.sync,
                 items: []
             };
             
@@ -2535,6 +2550,7 @@ TAME.WebServiceClient = function (service) {
             seq: true,
             dataAlign4: dataAlign4,
             dataObj: dataObj,
+            sync: args.sync,
             items: []
         };
         
@@ -2746,6 +2762,7 @@ TAME.WebServiceClient = function (service) {
                 }
             }
         }
+        
         
         //Generate the ADS request object and call the send function.
         adsReq = {
