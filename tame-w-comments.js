@@ -168,7 +168,15 @@ TAME.WebServiceClient = function (service) {
         return;
     }
     
+    //Use synchronous XMLHttpRequests if desired. 
+    if (service.isTaskerScript === true || service.syncXMLHttp === true) {
+        syncXMLHttp = true;
+    }
     
+    //Directory for storing the Symbol Table (with Tasker!!!!)
+    if (typeof service.symFileDir !== 'string') {
+        service.symFileDir = '/sdcard';
+    }
     
     //======================================================================================
     //                                Initialize Properties
@@ -1806,14 +1814,14 @@ TAME.WebServiceClient = function (service) {
             
             //Check if this should be a synchronous or a asynchronous XMLHttpRequest
             //adsReq.sync is used internal and it's most important, then comes reqDescr.sync and
-            //at last the global service parameter 
+            //at last the global parameter 
             if (adsReq.sync === true) {
                 async = false;
             } else if (this.reqDescr.sync === true) {
                 async = false;
             } else if (this.reqDescr.sync === false) {
                 async = true;
-            } else if (service.syncXmlHttp === true) {
+            } else if (syncXmlHttp === true) {
                 async = false;
             } else {
                 async = true;
@@ -3169,11 +3177,17 @@ TAME.WebServiceClient = function (service) {
                 
                 strAddr += infoLen;
             }
-            symTableOk = true;       
+            symTableOk = true;
+             
             try {
                 console.log('TAME library info: End of reading the UploadInfo.');
                 console.log('TAME library info: Symbol table ready.');
-            } catch (e) {}      
+            } catch (e) {}
+            
+            if (service.isTaskerScript === true) {
+                    writeSymFile();
+            }
+              
         } catch (e) {
             try {
                 console.log('TAME library error: Parsing of uploaded symbol information failed:' + e);
@@ -3182,11 +3196,70 @@ TAME.WebServiceClient = function (service) {
         }
     }
     
+    /*
+     * Read symbols from a JSON file.
+     * For use with Tasker only!!!!!!!
+     */
+    function readSymFile() {
+        
+        if (typeof JSON !== 'object') {
+            try {
+                console.log('TAME library error: No JSON parser found.');
+                } catch (e) {}
+            return;
+        } else if (typeof readFile === 'function')  {
+            try {
+                console.log('TAME library error: No readFile function found.');
+            } catch (e) {}
+            return;
+        }
+        
+        try {
+            symTable = JSON.parse(readFile(service.symFileDir + '/plcSymbolFile.json'));
+        } catch (e) {
+            try {
+                console.log('TAME library error: Could not read the symbol file:' + e);
+            } catch (e) {}
+            return;
+        }
+    };
+    
+    /*
+     * Read symbols from a JSON file.
+     * For use with Tasker only!!!!!!!
+     */
+    function writeSymFile() {
+        
+        var jstr;
+        
+        if (typeof JSON !== 'object') {
+            try {
+                console.log('TAME library error: No JSON parser found.');
+                } catch (e) {}
+            return;
+        } else if (typeof writeFile === 'function')  {
+            try {
+                console.log('TAME library error: No writeFile function found.');
+            } catch (e) {}
+            return;
+        }
+        
+        try {
+            jstr = JSON.stringify(symTable);
+            writeFile(service.symFileDir + '/plcSymbolFile.json', jstr);
+        } catch (e) {
+            try {
+                console.log('TAME library error: Could not read the symbol file:' + e);
+            } catch (e) {}
+            return;
+        }
+    }
     
     /**
      * Get the symbol-file (*.tpy) from the server and create
-     * an object (symTable) with the symbol names as the properties. 
+     * an object (symTable) with the symbol names as the properties.
      */
+    /*
     function getSymFile() {
   
         var xmlHttpReq = createXMLHttpReq(),
@@ -3235,25 +3308,25 @@ TAME.WebServiceClient = function (service) {
             } catch(e) {}
         }
     };
-    
+    */
     
     /**
      * !!!!!INITIALIZATION OF THE SYMBOL TABLE!!!!!
      * 
      * Get the names of the PLC variables using the upload info
-     * or the symbol file. Both are xmlhttp sync requests.
+     * or the symbol file if desired (for use with Tasker only).
      */
-    if (typeof service.symFileUrl == 'string') {
+    if (service.dontReadUpload === true) {
         
-        try {
-            console.log('TAME library message: Start of reading the SymFile.');
-        } catch (e) {}
+        if (service.isTaskerScript === true) {
+            readSymFile();
+        } else {
+            try {
+                console.log('TAME library info: Reading of the UploadInfo deactivated. Symbol Table could not be created.');
+            } catch (e) {}
+        }
         
-        //Get the symbol file and parse it.
-        getSymFile();
-        
-    } else if (service.dontReadUpload !== true) {
-        
+    } else {
         try {
             console.log('TAME library info: Start of reading the UploadInfo.');
         } catch (e) {}
