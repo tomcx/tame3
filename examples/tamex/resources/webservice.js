@@ -15,3 +15,4 @@ var Plc =  TAME.WebServiceClient.createClient({
 //Log the symbol table to the console.
 Plc.logSymbols();
     
+console.log(Plc.getSymbols());

@@ -220,7 +220,7 @@ window.onload = function() {
             }
         });
         
-        window.setTimeout('pollZyk1()', 10000); //Timeout 100 ms
+        window.setTimeout('pollZyk1()', 100); //Timeout 100 ms
     };
 
     
