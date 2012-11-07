@@ -1,5 +1,5 @@
 /*!
- * TAME [TwinCAT ADS Made Easy] V3.1 beta
+ * TAME [TwinCAT ADS Made Easy] V3.1 beta 2
  * 
  * Copyright (c) 2009-2012 Thomas Schmidt; t.schmidt.p1 at freenet.de
  * 
@@ -167,8 +167,6 @@ TAME.WebServiceClient = function (service) {
         } catch(e) {}
         return;
     }
-    
-    
     
     
     //======================================================================================
@@ -1789,10 +1787,10 @@ TAME.WebServiceClient = function (service) {
         
         adsReq.send = function() {
             
-            var soapReq;
+            var soapReq, async;
 
             //Cancel the request, if the last on with the same ID is not finished.
-            if (typeof this.reqDescr.id == 'number' && currReq[this.reqDescr.id] > 0) {
+            if (typeof this.reqDescr.id === 'number' && currReq[this.reqDescr.id] > 0) {
                 try {
                     console.log('TAME library warning: Request dropped (last request with ID ' + adsReq.reqDescr.id + ' not finished!)');
                 } catch(e) {}
@@ -1803,6 +1801,21 @@ TAME.WebServiceClient = function (service) {
                 //Automatic acknowleding after a count of 'maxDropReq' to
                 //prevent stucking.
                 currReq[this.reqDescr.id] = 0;
+            }
+            
+            //Check if this should be a synchronous or a asynchronous XMLHttpRequest
+            //adsReq.sync is used internal and it's most important, then comes reqDescr.sync and
+            //at last the global parameter 
+            if (adsReq.sync === true) {
+                async = false;
+            } else if (this.reqDescr.sync === true) {
+                async = false;
+            } else if (this.reqDescr.sync === false) {
+                async = true;
+            } else if (service.syncXMLHttp === true) {
+                async = false;
+            } else {
+                async = true;
             }
                 
             //Create the XMLHttpRequest object.
@@ -1845,31 +1858,29 @@ TAME.WebServiceClient = function (service) {
             soapReq += '></soap:Body></soap:Envelope>';
             
             //Send the AJAX request.
-            if (typeof this.xmlHttpReq == 'object') {
+            if (typeof this.xmlHttpReq === 'object') {
     
-                this.xmlHttpReq.open('POST', url, (adsReq.sync === true ? false : true));
+                this.xmlHttpReq.open('POST', url, async);
     
                 this.xmlHttpReq.setRequestHeader('SOAPAction', 'http://beckhoff.org/action/TcAdsSync.' + this.method);
                 this.xmlHttpReq.setRequestHeader('Content-Type', 'text/xml; charset=utf-8');
                 
-                if (adsReq.sync === true) {
-                    this.xmlHttpReq.send(soapReq);
-                    instance.parseResponse(adsReq);
-                } else {
+                if (async === true) {
+                    //asynchronous request
                     this.xmlHttpReq.onreadystatechange = function() {
-                        if ((adsReq.xmlHttpReq.readyState == 4) && (adsReq.xmlHttpReq.status == 200)) {
+                        if ((adsReq.xmlHttpReq.readyState === 4) && (adsReq.xmlHttpReq.status === 200)) {
                             instance.parseResponse(adsReq);
                         }
                     };
-                    
+                    this.xmlHttpReq.send(soapReq);  
+                } else {
+                    //synchronous request
                     this.xmlHttpReq.send(soapReq);
-    
-                    
+                    instance.parseResponse(adsReq);   
                 }
     
-                
                 //Request with index 'id' sent.
-                if (typeof this.reqDescr.id == 'number') {
+                if (typeof this.reqDescr.id === 'number') {
                     currReq[this.reqDescr.id] = 1;
                 }
             }
@@ -2116,6 +2127,7 @@ TAME.WebServiceClient = function (service) {
             ocd: args.ocd,
             readLength: len,
             debug: args.debug,
+            sync: args.sync,
             seq: true,
             items: [{
                 val: args.val,
@@ -2125,6 +2137,7 @@ TAME.WebServiceClient = function (service) {
                 suffix: args.suffix
             }]
         };
+        
 
         //Call the send function.
         if (method === 'Write') {
@@ -2305,6 +2318,7 @@ TAME.WebServiceClient = function (service) {
                 seq: true,
                 dataAlign4: dataAlign4,
                 dataObj: dataObj,
+                sync: args.sync,
                 items: []
             };
             
@@ -2535,6 +2549,7 @@ TAME.WebServiceClient = function (service) {
             seq: true,
             dataAlign4: dataAlign4,
             dataObj: dataObj,
+            sync: args.sync,
             items: []
         };
         
@@ -2747,6 +2762,7 @@ TAME.WebServiceClient = function (service) {
             }
         }
         
+        
         //Generate the ADS request object and call the send function.
         adsReq = {
             method: 'Read',
@@ -2842,7 +2858,55 @@ TAME.WebServiceClient = function (service) {
             console.log(symTable);
         } catch(e) {}
     };
-
+    
+    
+    /**
+     * Converts the Symbol Table to a JSON string.
+     * 
+     * @return {Array} jstr The Symbol Table as a JSON string . 
+     */
+    this.getSymbols = function() {
+        var jstr;
+        
+        if (typeof JSON !== 'object') {
+            try {
+                console.log('TAME library error: No JSON parser found.');
+                } catch (e) {}
+        } else {
+            try {
+                jstr = JSON.stringify(symTable);
+                return jstr;
+            } catch (e) {
+                try {
+                    console.log('TAME library error: Could not convert the Symbol Table to JSON:' + e);
+                } catch (e) {}
+            }
+        }
+    };
+    
+    
+    /**
+     * Reads the Symbol Table from a JSON string
+     * 
+     * @param {String} jstr A JSON string with the symbols.
+     */
+    this.setSymbols = function(jstr) {
+        if (typeof JSON !== 'object') {
+            try {
+                console.log('TAME library error: No JSON parser found.');
+                } catch (e) {}
+        } else {
+            try {
+                symTable = JSON.parse(jstr);
+            } catch (e) {
+                try {
+                    console.log('TAME library error: Could not read the Symbol Table from JSON:' + e);
+                } catch (e) {}
+            }
+        }
+    };
+    
+    
 
     /**
      * The shortcuts for reading and writing data.
@@ -3149,14 +3213,19 @@ TAME.WebServiceClient = function (service) {
                     }
                 }
                 
-                
                 strAddr += infoLen;
             }
-            symTableOk = true;       
+            symTableOk = true;
+             
             try {
                 console.log('TAME library info: End of reading the UploadInfo.');
                 console.log('TAME library info: Symbol table ready.');
-            } catch (e) {}      
+            } catch (e) {}
+            
+            if (service.isTaskerScript === true) {
+                    writeSymFile();
+            }
+              
         } catch (e) {
             try {
                 console.log('TAME library error: Parsing of uploaded symbol information failed:' + e);
@@ -3165,11 +3234,13 @@ TAME.WebServiceClient = function (service) {
         }
     }
     
+
     
     /**
      * Get the symbol-file (*.tpy) from the server and create
-     * an object (symTable) with the symbol names as the properties. 
+     * an object (symTable) with the symbol names as the properties.
      */
+    /*
     function getSymFile() {
   
         var xmlHttpReq = createXMLHttpReq(),
@@ -3218,24 +3289,20 @@ TAME.WebServiceClient = function (service) {
             } catch(e) {}
         }
     };
-    
+    */
     
     /**
      * !!!!!INITIALIZATION OF THE SYMBOL TABLE!!!!!
      * 
-     * Get the names of the PLC variables using the upload info
-     * or the symbol file. Both are xmlhttp sync requests.
+     * Get the names of the PLC variables using the upload info.
      */
-    if (typeof service.symFileUrl == 'string') {
+    if (service.dontReadUpload === true) {
         
         try {
-            console.log('TAME library message: Start of reading the SymFile.');
+            console.log('TAME library info: Reading of the UploadInfo deactivated. Symbol Table could not be created.');
         } catch (e) {}
         
-        //Get the symbol file and parse it.
-        getSymFile();
-        
-    } else if (service.dontReadUpload !== true) {
+    } else {
         
         try {
             console.log('TAME library info: Start of reading the UploadInfo.');
