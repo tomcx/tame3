@@ -7,11 +7,6 @@
 var field1, field2, field5, field6, field7, field8, field9, 
     field10, field11, field12, field13, field20, field21,
     counter1, counter2, pollZyk1, runLight = [];
-    
-    var structest = {};
-    var arrtest = [];
-    var structArrTest = [];
-
 
 window.onload = function() {
   
@@ -125,6 +120,9 @@ window.onload = function() {
     //This function reads the data of the variables 
     //an calls itself again. Of course you can use "setInterval" instead.
     pollZyk1 = function(){
+        
+        var i;
+        
         Plc.sumReadReq({
             id: 1,        //If an ID is given, the script waits for the end of the request before firing a new one.
             items: [
@@ -193,24 +191,11 @@ window.onload = function() {
                 },{
                     name: '.In_REAL',
                     jvar: 'field21.data'
-                },{
-                    name: '.TestStruct',
-                    jvar: 'structest',
-                    def: structdef
-                },{
-                    name: '.ArrayOfString',
-                    jvar: 'arrtest'
-                },{
-                    name: '.ArrayOfTestStruct2',
-                    jvar: 'structArrTest',
-                    def: structdef2
                 }
-                
-                
             ],
             oc: function() {
                 //Set the background-color after reading data
-                for (var i = 0; i < 5; i++) {
+                for (i = 0; i < 5; i++) {
                     if (runLight[i] === true) {
                         document.getElementById('light' + i).style.backgroundColor = 'green';
                     } else {
