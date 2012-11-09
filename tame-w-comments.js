@@ -10,6 +10,8 @@
  */
 
 
+/*jslint plusplus: true */
+
 
 /**
  * This is the global TAME object. Used as a namespace to store values and functions.
@@ -43,7 +45,8 @@ var TAME = {
  */
 TAME.WebServiceClient = function (service) {
 
-
+    "use strict";
+    
 
     //======================================================================================
     //                                Initialize Variables
@@ -92,7 +95,7 @@ TAME.WebServiceClient = function (service) {
         },
         
         //Set language for names of days and months, default is german.
-        lang = (typeof service.language == 'string') ? service.language : 'ge',
+        lang = (typeof service.language === 'string') ? service.language : 'ge',
 
         //Generate a Base64 alphabet for the encoder. Using an array or object to
         //store the alphabet the en-/decoder runs faster than with the commonly
@@ -133,41 +136,42 @@ TAME.WebServiceClient = function (service) {
         
         url,
         netId,
-        port;
+        port,
+        syncXmlHttp;
 
     
     //URL of the TcAdsWebService.dll
-    if (typeof service.serviceUrl == 'string') {
+    if (typeof service.serviceUrl === 'string') {
         url = service.serviceUrl;
     } else {
-        try {
-            console.log('TAME library error: Service URL is not a string!');
-        } catch(e) {}
+        log('TAME library error: Service URL is not a string!');
         return;
     }
 
     //AMS NetID of the PLC
-    if (typeof service.amsNetId == 'string') {
+    if (typeof service.amsNetId === 'string') {
         netId = service.amsNetId;
     } else {
-        try {
-            console.log('TAME library error: NetId is not a string!');
-        } catch(e) {}
+        log('TAME library error: NetId is not a string!');
         return;
     }
     
     //AMS Port Number of the Runtime System
     if (service.amsPort === undefined) {
         port = '801';
-    } else if (typeof service.amsPort == 'string' && parseInt(service.amsPort, 10) >= 801 && parseInt(service.amsPort, 10) <= 804) {
-       port = service.amsPort;
+    } else if (typeof service.amsPort === 'string' && parseInt(service.amsPort, 10) >= 801 && parseInt(service.amsPort, 10) <= 804) {
+        port = service.amsPort;
     } else {
-        try {
-            console.log('TAME library error: AMS Port Number (' + parseInt(service.amsPort, 10) + ') is no string or out of range!');
-        } catch(e) {}
+        log('TAME library error: AMS Port Number (' + parseInt(service.amsPort, 10) + ') is no string or out of range!');
         return;
     }
     
+    if (service.syncXmlHttp === true) {
+        syncXmlHttp = true;
+        log('TAME library info: The "syncXmlHttp" parameter was set. Synchronous XMLHttpRequests are used by default.');
+    } else {
+        syncXmlHttp = false;
+    }
     
     //======================================================================================
     //                                Initialize Properties
@@ -191,6 +195,531 @@ TAME.WebServiceClient = function (service) {
     //Check limits of numeric variables before sending them to the PLC
     this.useCheckBounds = true;
     
+    
+    
+        
+    //======================================================================================
+    //                                 Helper Functions
+    //======================================================================================
+    
+    /**
+     * Wrapper for console messages
+     * 
+     * @param {Mixed} message  The message to be logged.
+     */
+    function log(message) {
+        try{
+            console.log(message);
+         } catch(e) {
+            //fallback
+            alert(message);
+        }
+    }
+    
+    /**
+     * Decode variable names passed as strings and return the object,
+     * store data values if they are passed too.
+     * 
+     * @param {String} name     The name of a JavaScript variable or a property.
+     * @param {Object} data     Data values to store in the variable/property.
+     * @param {Object} obj      The object containing the property to store the data in. 
+     *                          Used with createArrayDescriptor and createStructDescriptor 
+     *                          for better performance.
+     */
+    function parseVarName(name, data, obj, prefix, suffix) {
+        
+        var  arr = [],
+             last = 0,
+             a = [],
+             i = 0;
+    
+        if (typeof name === 'number') {
+            arr[0] = name.toString(10);
+        } else if (typeof name === 'string') {
+            arr = name.split('.');
+        } else {
+            log('TAME library error: Can\'t parse name of object/variable. Name is not a string or number!');
+            log(name);
+            return;
+        }
+
+        if (obj === undefined){
+            obj = window;
+        }
+        last = arr.length - 1;
+        
+        //Walk through the tiers
+        while (i < last) {
+             //Check if the passed name points to an array.
+            if (arr[i].charAt(arr[i].length - 1) === ']') {
+                a = arr[i].substring(0,arr[i].length - 1).split('[');
+                obj = obj[a[0]][a[1]];
+            } else {
+                //Create an array if object is not defined.
+                //This can happen when an array of structure is
+                //not defined.
+                if (obj[arr[i]] === undefined) {
+                    obj[arr[i]] = [];
+                }                
+                obj = obj[arr[i]];
+            }
+            i++;
+        } 
+        
+        //Last element
+        if (arr[i].charAt(arr[i].length - 1) === ']') {
+            //If last item of the name is an array
+            a = arr[i].substring(0, arr[i].length - 1).split('[');
+            obj = obj[a[0]];
+            
+            //Store data if passed.
+            if (data !== undefined) {
+                if (typeof prefix === 'string') {
+                    data = prefix + data;
+                }
+                if (typeof suffix === 'string') {
+                    data = data + suffix;
+                }
+                obj[a[1]] = data;
+            }
+            return obj[a[1]];
+            
+        } else {
+            //Store data if passed.
+            if (data !== undefined) {
+                if (typeof prefix === 'string') {
+                    data = prefix + data;
+                }
+                if (typeof suffix === 'string') {
+                    data = data + suffix;
+                }
+                obj[arr[i]] = data;
+            }
+            return obj[arr[i]];
+        }
+    }
+    
+    
+    /**
+     * Check if a passed string length is valid.
+     * 
+     * @param {Number} len
+     */
+    function isValidStringLen(len) {
+        if (len === undefined) {
+            return false;
+        } else if (! isNaN(len) && len > 0 && len <= instance.maxStringLen) {
+            return true;
+        } else {
+            log('TAME library error: User defined string length not valid! length: ' + len);
+            log('Max. string length: ' + instance.maxStringLen);
+            return false;
+        } 
+    }
+    
+    
+    /**
+     * The function returns the IndexGroup for a PLC variable address.
+     * 
+     * @param {Object} req            An object with the address or the name for the request.
+     * @return {Number} indexGroup  The IndexGroup for the ADS request. 
+     */
+    function getIndexGroup(req) {
+        var indexGroup;
+        
+        if (req.addr) {
+            //Try to get the IndexGroup by address
+            if (typeof req.addr === 'string' && req.addr.charAt(0) === '%') {
+                if (req.addr.charAt(2) === 'X') {
+                    //Bit addresses.
+                    indexGroup = indexGroups[req.addr.substr(1, 2)];   
+                } else {
+                    //Byte addresses.
+                    indexGroup = indexGroups[req.addr.substr(1, 1)];
+                }
+            } else {
+                log('TAME library error: Wrong address definition, should be a string and start with "%"!');
+                log(req);
+                return;
+            }
+        } else if (req.name) {
+            //Try to get the IndexGroup by name
+            if (typeof req.name === 'string') {
+                try {
+                    indexGroup = symTable[req.name].indexGroup;
+                } catch(e) {
+                    log('TAME library error: Can\'t get the IndexGroup for this request!');
+                    log('TAME library error: Please check the variable name.');
+                    log(e);
+                    log(req);
+                    return;
+                }
+            } else {
+                log('TAME library error: Varible name should be a string!');
+                log(req);
+                return;
+            }    
+        } else {
+            log('TAME library error: Neither a name nor an address for the variable/request defined!');
+            log(req);
+            return;
+        }
+        
+        if (isNaN(indexGroup)) {
+            log('TAME library error: IndexGroup is not a number, check address or name definition of the variable/request!');
+            log(req);
+        }
+        
+        return indexGroup;
+    }
+    
+    
+    /**
+     * The function returns the IndexOffset for a PLC variable address.
+     * 
+     * @param {Object} req            An object with the address or the name for the request.
+     * @return {Number} indexOffset The IndexOffset for the ADS request. 
+     */
+    function getIndexOffset(req) {
+        var indexOffset, numString = '', mxaddr = [];
+        
+        if (req.addr) {
+            //Try to get the IndexOffset by address
+            if (typeof req.addr === 'string' && req.addr.charAt(0) === '%') {
+                if (req.addr.charAt(2) === 'X') {
+                    //Bit req.addresses.
+                    numString = req.addr.substr(3);
+                    mxaddr = numString.split('.');
+                    indexOffset = mxaddr[0] * 8 + mxaddr[1] * 1;
+                } else {
+                    //Byte addresses.
+                    indexOffset = parseInt(req.addr.substr(3), 10);
+                    //Address offset is used if only one item of an array
+                    //should be sent.
+                    if (typeof req.addrOffset === 'number') {
+                        indexOffset += req.addrOffset;
+                    }
+                }
+            } else {
+                log('TAME library error: Wrong address definition, should be a string and start with "%"!');
+                log(req);
+                return;
+            }
+        } else if (req.name) {
+            //Try to get the IndexOffset by name
+            if (typeof req.name === 'string') {
+                try {
+                    indexOffset = symTable[req.name].indexOffset;
+                    //Address offset is used if only one item of an array
+                    //should be sent.
+                    if (typeof req.addrOffset === 'number') {
+                        indexOffset += req.addrOffset;
+                    }
+                } catch(e) {
+                    log('TAME library error: Can\'t get the IndexOffset for this request!');
+                    log('TAME library error: Please check the variable name.');
+                    log(e);
+                    log(req);
+                    return;
+                }
+            } else {
+                log('TAME library error: Varible name should be a string!');
+                log(req);
+                return;
+            }    
+        } else {
+            log('TAME library error: Neither a name nor an address for the variable/request defined!');
+            log(req);
+            return;
+        }
+        
+        if (isNaN(indexOffset)) {
+            log('TAME library error: IndexOffset is not a number, check address or name definition of the variable/request.');
+            log(req);
+        }
+        
+        return indexOffset;  
+    }
+    
+    
+    /**
+     * This function creates an XMLHttpRequest object. 
+     */
+    function createXMLHttpReq() {
+        var xmlHttpReq;
+        
+        if (XMLHttpRequest) {
+            //Create the XMLHttpRequest object.
+            //Mozilla, Opera, Safari and Internet Explorer (> v7)
+            xmlHttpReq = new XMLHttpRequest();
+        } else {
+            //Internet Explorer 6 and older
+            try {
+                xmlHttpReq = new ActiveXObject('Msxml2.XMLHTTP');
+            } catch(e) {
+                try {
+                    xmlHttpReq = new ActiveXObject('Microsoft.XMLHTTP');
+                } catch(e) {
+                    xmlHttpReq = null;
+                    log('TAME library error: Failed Creating XMLHttpRequest-Object!');
+                }
+            }
+        }
+        return xmlHttpReq;
+    }    
+    
+    
+    /**
+     * Create the objects for SOAP and XMLHttpRequest and send the request.
+     * 
+     * @param {Object} adsReq   The object containing the arguments of the ADS request.
+     */
+    function createRequest(adsReq) {
+        
+        if (adsReq.reqDescr.debug) {
+            log(adsReq);
+        }
+        
+        adsReq.send = function() {
+            
+            var soapReq, async;
+
+            //Cancel the request, if the last on with the same ID is not finished.
+            if (typeof this.reqDescr.id === 'number' && currReq[this.reqDescr.id] > 0) {
+                log('TAME library warning: Request dropped (last request with ID ' + adsReq.reqDescr.id + ' not finished!)');
+                currReq[this.reqDescr.id]++;
+                if (currReq[this.reqDescr.id] <= instance.maxDropReq) {
+                    return;
+                }
+                //Automatic acknowleding after a count of 'maxDropReq' to
+                //prevent stucking.
+                currReq[this.reqDescr.id] = 0;
+            }
+            
+            //Check if this should be a synchronous or a asynchronous XMLHttpRequest
+            //adsReq.sync is used internal and it's most important, then comes reqDescr.sync and
+            //at last the global parameter 
+            if (adsReq.sync === true) {
+                async = false;
+            } else if (this.reqDescr.sync === true) {
+                async = false;
+            } else if (this.reqDescr.sync === false) {
+                async = true;
+            } else if (syncXmlHttp === true) {
+                async = false;
+            } else {
+                async = true;
+            }
+                
+            //Create the XMLHttpRequest object.
+            this.xmlHttpReq = createXMLHttpReq();
+            
+            //Generate the SOAP request.
+            soapReq = '<?xml version=\'1.0\' encoding=\'utf-8\'?>';
+            soapReq += '<soap:Envelope xmlns:xsi=\'http://www.w3.org/2001/XMLSchema-instance\' ';
+            soapReq += 'xmlns:xsd=\'http://www.w3.org/2001/XMLSchema\' ';
+            soapReq += 'xmlns:soap=\'http://schemas.xmlsoap.org/soap/envelope/\'>';
+            soapReq += '<soap:Body><q1:';
+            soapReq += this.method;
+            soapReq += ' xmlns:q1=\'http://beckhoff.org/message/\'><netId xsi:type=\'xsd:string\'>';
+            soapReq += netId;
+            soapReq += '</netId><nPort xsi:type=\'xsd:int\'>';
+            soapReq += port;
+            soapReq += '</nPort><indexGroup xsi:type=\'xsd:unsignedInt\'>';
+            soapReq += this.indexGroup;
+            soapReq += '</indexGroup><indexOffset xsi:type=\'xsd:unsignedInt\'>';
+            soapReq += this.indexOffset;
+            soapReq += '</indexOffset>';
+    
+            if ((this.method === 'Read' || this.method === 'ReadWrite') && this.reqDescr.readLength > 0) {
+                soapReq += '<cbRdLen xsi:type=\'xsd:int\'>';
+                soapReq += this.reqDescr.readLength;
+                soapReq += '</cbRdLen>';
+            }
+            if (this.pData && this.pData.length > 0) {
+                soapReq += '<pData xsi:type=\'xsd:base64Binary\'>';
+                soapReq += this.pData;
+                soapReq += '</pData>';
+            }
+            if (this.pwrData && this.pwrData.length > 0) {
+                soapReq += '<pwrData xsi:type=\'xsd:base64Binary\'>';
+                soapReq += this.pwrData;
+                soapReq += '</pwrData>';
+            }
+            soapReq += '</q1:';
+            soapReq += this.method;
+            soapReq += '></soap:Body></soap:Envelope>';
+            
+            //Send the AJAX request.
+            if (typeof this.xmlHttpReq === 'object') {
+    
+                this.xmlHttpReq.open('POST', url, async);
+    
+                this.xmlHttpReq.setRequestHeader('SOAPAction', 'http://beckhoff.org/action/TcAdsSync.' + this.method);
+                this.xmlHttpReq.setRequestHeader('Content-Type', 'text/xml; charset=utf-8');
+                
+                if (async === true) {
+                    //asynchronous request
+                    this.xmlHttpReq.onreadystatechange = function() {
+                        if ((adsReq.xmlHttpReq.readyState === 4) && (adsReq.xmlHttpReq.status === 200)) {
+                            instance.parseResponse(adsReq);
+                        }
+                    };
+                    this.xmlHttpReq.send(soapReq);  
+                } else {
+                    //synchronous request
+                    this.xmlHttpReq.send(soapReq);
+                    instance.parseResponse(adsReq);   
+                }
+    
+                //Request with index 'id' sent.
+                if (typeof this.reqDescr.id === 'number') {
+                    currReq[this.reqDescr.id] = 1;
+                }
+            }
+        };
+        return adsReq;
+    }
+    
+    
+    /**
+     * Function for checking the input values when writing numeric PLC variables.
+     * 
+     * @param {Object} item
+     * @param {String} type
+     * @param {Number} min
+     * @param {Number} max
+     */
+    function checkValue(item, type, min, max){
+        var val;
+        
+        //Test if value is valid.
+        if (typeof item.val === 'string') {
+            if (type === 'REAL' || type === 'LREAL') {
+                val = parseFloat(item.val);
+            } else {
+                val = parseInt(item.val, 10);
+            }
+        } else if (typeof item.val === 'number') {
+            val = item.val;
+        } else {
+            log('TAME library error: Wrong variable type for a numeric variable in write request!');
+            log('TAME library error: Variable type should be number or string, but is ' + typeof item.val);
+            log(item);
+            val = 0;
+        }
+        
+        if (isNaN(val)) {
+            val = 0;
+            log('TAME library error: Value of a numeric variable in write request is not a number.');
+            log(item);
+        }
+        
+        //Check bounds
+        if (instance.useCheckBounds === true) {
+            if (type === 'LREAL') {
+                if (!isFinite(val)) {
+                    log('TAME library warning: Limit for LREAL value exceeded!');
+                    log('Upper limit: ' + Number.MAX_VALUE);
+                    log('Lower limit: ' + Number.MIN_VALUE);
+                    log('value: ' + val);
+                    log(item);
+                }
+            } else if (type === 'REAL') {
+                if (val > 0) {
+                    if (val < 1.175495e-38) {  
+                        log('TAME library warning: Lower limit for positive REAL value exceeded!');
+                        log('limit: 1.175495e-38');
+                        log('value: ' + val);
+                        log(item);
+                        val = 1.175495e-38;
+                    } else if (val > 3.402823e+38) {
+                        log('TAME library warning: Upper limit for positive REAL value exceeded!');
+                        log('limit: 3.402823e+38');
+                        log('value: ' + val);
+                        log(item);
+                        val = 3.402823e+38;
+                    }
+                } else if (val < 0) {
+                    if (val > -1.175495e-38) {                   
+                        log('TAME library warning: Upper limit for negative REAL value exceeded!');
+                        log('limit: -1.175495e-38');
+                        log('value: ' + val);
+                        log(item);
+                        val = -1.175495e-38;
+                    } else if (val < -3.402823e+38) {
+                        log('TAME library warning: Lower limit for negative REAL value exceeded!');
+                        log('limit: -3.402823e+38');
+                        log('value: ' + val);
+                        log(item);
+                        val = -3.402823e+38;
+                    }
+                }
+            } else {
+                if (val < min) {
+                    log('TAME library warning: Lower limit for numeric value exceeded!');
+                    log('type: ' + type);
+                    log('limit: ' + min);
+                    log('value: ' + val);
+                    log(item);
+                    val = min;
+                }
+                else if (val > max) {
+                    log('TAME library warning: Upper limit for numeric value exceeded!');
+                    log('type: ' + type);
+                    log('limit: ' + max);
+                    log('value: ' + val);
+                    log(item);
+                    val = max;
+                }
+            }
+        }
+        
+        return val;
+    }
+    
+    
+    /**
+     * Get type and format and return it in an array. Create an
+     * item.type entry if it doesn't exist.
+     * 
+     * @param {Object} item     An item of a variable list.
+     * @return {Array} arr      An array with type and format. 
+     */
+    function getTypeAndFormat(item) {
+        var arr = [];
+        if (typeof item.type === 'string') {
+            //Type is defined
+            arr = item.type.split('.');
+            if (arr.length > 2) {
+                //Join the formatting string if there were points in it.
+                arr[1] = arr.slice(1).join('.');
+            } 
+        } else if (symTableOk && typeof item.name === 'string') {
+            //Try to get the type from the symbol table and
+            //create the item.type property 
+            try {
+                arr[0] = symTable[item.name].type;
+                if (arr[0] === 'STRING') {
+                    arr[1] = symTable[item.name].stringLength;
+                } else if (typeof item.format === 'string') {
+                    arr[1] = item.format;
+                } else if (typeof item.decPlaces  === 'number') {
+                    arr[1] = item.decPlaces;
+                } else if (typeof item.dp  === 'number') {
+                    arr[1] = item.dp;
+                }
+            } catch(e) {
+                log('TAME library error: A problem occured while reading a data type from the symbol table!');
+                log(e);
+                log(item);
+            }
+        } else {
+            log('TAME library error: Could not get the type of the item!');
+            log(item);
+        }
+        return arr;
+    }
     
     
     
@@ -267,11 +796,11 @@ TAME.WebServiceClient = function (service) {
             //Create the mantissa.
             for (i = 2; i < 25; i++) {
                 mant <<= 1;
-                if (bas.charAt(i) == '1') {
+                if (bas.charAt(i) === '1') {
                     mant += 1;
                 }
             }
-            if (bas.charAt(25) == '1') {
+            if (bas.charAt(25) === '1') {
                 mant += 1;
             }
             //Create the REAL value.
@@ -318,17 +847,17 @@ TAME.WebServiceClient = function (service) {
             //Create the mantissa.
             for (i = 2; i < 22; i++) {
                 mant <<= 1;
-                if (bas.charAt(i) == '1') {
+                if (bas.charAt(i) === '1') {
                     mant += 1;
                 }
             }
-            if (bas.charAt(i) == '1') {
+            if (bas.charAt(i) === '1') {
                 firstbit = true;
             }
             i++;
             for (i; i < 54; i++) {
                 mant2 <<= 1;
-                if (bas.charAt(i) == '1') {
+                if (bas.charAt(i) === '1') {
                     mant2 += 1;
                 }
             } 
@@ -438,10 +967,8 @@ TAME.WebServiceClient = function (service) {
                     item.val = 0;
                     break;       
             }
-            try {
-                console.log('TAME library warning: Value of a variable in write request is not defined!');
-                console.log(item);
-            } catch(e) {}
+            log('TAME library warning: Value of a variable in write request is not defined!');
+            log(item);
         }
         
         //Depending on the data type, convert the values to a byte array.
@@ -510,7 +1037,7 @@ TAME.WebServiceClient = function (service) {
                 bytes = bytes.concat(numToByteArr(val.part1, len));
                 break;
             case 'DATE':
-                if (typeof item.val == 'object') {
+                if (typeof item.val === 'object') {
                     //Delete the time portion.
                     item.val.setHours(0);
                     item.val.setMinutes(0);
@@ -519,28 +1046,24 @@ TAME.WebServiceClient = function (service) {
                     //set the time zone to UTC.
                     val = item.val.getTime() / 1000 - item.val.getTimezoneOffset() * 60;
                 } else {
-                    try {
-                        console.log('TAME library error: Date is not an object!)');
-                        console.log(item);
-                    } catch(e) {}
+                    log('TAME library error: Date is not an object!');
+                    log(item);
                 }
                 bytes = numToByteArr(val, len);
                 break;
             case 'DT':
-                if (typeof item.val == 'object') {
+                if (typeof item.val === 'object') {
                     //Convert the date object in seconds since 1.1.1970 and
                     //set the time zone to UTC.
                     val = item.val.getTime() / 1000 - item.val.getTimezoneOffset() * 60;
                 } else {
-                    try {
-                        console.log('TAME library error: Date is not an object!)');
-                        console.log(item);
-                    } catch(e) {}
+                    log('TAME library error: Date is not an object!');
+                    log(item);
                 }
                 bytes = numToByteArr(val, len);
                 break;
             case 'TOD':
-                if (typeof item.val == 'object') {
+                if (typeof item.val === 'object') {
                     //Delete the date portion.
                     item.val.setYear(1970);
                     item.val.setMonth(0);
@@ -549,10 +1072,8 @@ TAME.WebServiceClient = function (service) {
                     //set the time zone to UTC.
                     val = item.val.getTime() - item.val.getTimezoneOffset() * 60000;
                 } else {
-                    try {
-                        console.log('TAME library error: Date is not an object!)');
-                        console.log(item);
-                    } catch(e) {}
+                    log('TAME library error: Date is not an object!');
+                    log(item);
                 }
                 bytes = numToByteArr(val, len);
                 break;
@@ -582,18 +1103,14 @@ TAME.WebServiceClient = function (service) {
                 val = toMillisec(val, format);
                 if (val < 0) {
                     val = 0;
-                    try {
-                        console.log('TAME library warning: Lower limit for TIME variable exceeded!)');
-                        console.log('value: ' + item.val + format);
-                        console.log(item);
-                    } catch(e) {}
+                    log('TAME library warning: Lower limit for TIME variable exceeded!)');
+                    log('value: ' + item.val + format);
+                    log(item);
                 } else if (val > 4294967295) {
                     val = 4294967295;
-                    try {
-                        console.log('TAME library warning: Upper limit for TIME variable exceeded!)');
-                        console.log('value: ' + item.val + format);
-                        console.log(item);
-                    } catch(e) {}
+                    log('TAME library warning: Upper limit for TIME variable exceeded!)');
+                    log('value: ' + item.val + format);
+                    log(item);
                 }
                 bytes = numToByteArr(val, len);
                 break;
@@ -601,9 +1118,7 @@ TAME.WebServiceClient = function (service) {
                 //Do nothing.
                 break;
             default:
-                try {
-                    console.log('TAME library error: Unknown data type in write request : ' + type);
-                } catch (e) {}
+                log('TAME library error: Unknown data type in write request : ' + type);
                 break;
         }
         
@@ -763,7 +1278,7 @@ TAME.WebServiceClient = function (service) {
             return 0;
         }       
         //Check the sign bit.
-        sign = ((num >>> 31) == 1) ? '-' : '+';
+        sign = ((num >>> 31) === 1) ? '-' : '+';
         num <<= 1; //Delete the sign bit.
         //Calculate the exponent.
         exp = (num >>> 24) - 127;
@@ -796,7 +1311,7 @@ TAME.WebServiceClient = function (service) {
             return 0;
         }
         //Check the sign bit.
-        sign = ((num >>> 31) == 1) ? '-' : '+';
+        sign = ((num >>> 31) === 1) ? '-' : '+';
         num <<= 1; //Delete the sign bit.
         //Calculate the exponent.
         exp = (num >>> 21) - 1023;
@@ -810,7 +1325,7 @@ TAME.WebServiceClient = function (service) {
             i++;
         }
         //Part 2.
-        if ((num2 >>> 31) == 1) {
+        if ((num2 >>> 31) === 1) {
             mant += dual;
             num2 <<= 1;
             dual /= 2;
@@ -1174,9 +1689,7 @@ TAME.WebServiceClient = function (service) {
                 //Just do nothing.
                 break;
             default:
-                try {
-                    console.log('TAME library error: Unknown data type at parsing read request: ' + type);
-                } catch (e) {}
+                log('TAME library error: Unknown data type at parsing read request: ' + type);
                 break;
         }
         
@@ -1260,10 +1773,8 @@ TAME.WebServiceClient = function (service) {
                 }
             }
         } catch (e) {
-            try {
-                console.log('TAME library error: Parsing Failed:' + e);
-                    console.log(item);
-            } catch (e) {}
+            log('TAME library error: Parsing Failed:' + e);
+            log(item);
             return;
         }
     }
@@ -1415,12 +1926,9 @@ TAME.WebServiceClient = function (service) {
                 errorCode = subStringToData(dataSubString, 'DWORD');
                 
                 if (errorCode !== 0) {
-                    try {
-                        console.log('TAME library error: ADS sub command error while processing a SumReadRequest!');
-                        console.log('Error code: ' + errorCode);
-                        console.log(itemList[idx]);
-   
-                    } catch (e) {}
+                    log('TAME library error: ADS sub command error while processing a SumReadRequest!');
+                    log('Error code: ' + errorCode);
+                    log(itemList[idx]);
                 }
                 
                 strAddr += 4;
@@ -1479,575 +1987,10 @@ TAME.WebServiceClient = function (service) {
 
             }
         } catch (e) {
-            try {
-                console.log('TAME library error: Parsing Failed:' + e);
-                    console.log(item);
-            } catch (e) {}
+            log('TAME library error: Parsing Failed:' + e);
+            log(item);
             return;
         }
-    }
-    
-
-    
-    //======================================================================================
-    //                                 Helper Functions
-    //======================================================================================
-    
-    /**
-     * Decode variable names passed as strings and return the object,
-     * store data values if they are passed too.
-     * 
-     * @param {String} name     The name of a JavaScript variable or a property.
-     * @param {Object} data     Data values to store in the variable/property.
-     * @param {Object} obj      The object containing the property to store the data in. 
-     *                          Used with createArrayDescriptor and createStructDescriptor 
-     *                          for better performance.
-     */
-    function parseVarName(name, data, obj, prefix, suffix) {
-        
-        var  arr = [],
-             last = 0,
-             a = [],
-             i = 0;
-    
-        if (typeof name == 'number') {
-            arr[0] = name.toString(10);
-        } else if (typeof name == 'string') {
-            arr = name.split('.');
-        } else {
-            try {
-                console.log('TAME library error: Can\'t parse name of object/variable. Name is not a string or number!');
-                console.log(name);
-            } catch(e){}
-            return;
-        }
-
-        if (obj === undefined){
-            obj = window;
-        }
-        last = arr.length - 1;
-        
-        //Walk through the tiers
-        while (i < last) {
-             //Check if the passed name points to an array.
-            if (arr[i].charAt(arr[i].length - 1) == ']') {
-                a = arr[i].substring(0,arr[i].length - 1).split('[');
-                obj = obj[a[0]][a[1]];
-            } else {
-                //Create an array if object is not defined.
-                //This can happen when an array of structure is
-                //not defined.
-                if (obj[arr[i]] === undefined) {
-                    obj[arr[i]] = [];
-                }                
-                obj = obj[arr[i]];
-            }
-            i++;
-        } 
-        
-        //Last element
-        if (arr[i].charAt(arr[i].length - 1) == ']') {
-            //If last item of the name is an array
-            a = arr[i].substring(0, arr[i].length - 1).split('[');
-            obj = obj[a[0]];
-            
-            //Store data if passed.
-            if (data !== undefined) {
-                if (typeof prefix == 'string') {
-                    data = prefix + data;
-                }
-                if (typeof suffix == 'string') {
-                    data = data + suffix;
-                }
-                obj[a[1]] = data;
-            }
-            return obj[a[1]];
-            
-        } else {
-            //Store data if passed.
-            if (data !== undefined) {
-                if (typeof prefix == 'string') {
-                    data = prefix + data;
-                }
-                if (typeof suffix == 'string') {
-                    data = data + suffix;
-                }
-                obj[arr[i]] = data;
-            }
-            return obj[arr[i]];
-        }
-    }
-    
-    
-    /**
-     * Check if a passed string length is valid.
-     * 
-     * @param {Number} len
-     */
-    function isValidStringLen(len) {
-        if (len === undefined) {
-            return false;
-        } else if (! isNaN(len) && len > 0 && len <= instance.maxStringLen) {
-            return true;
-        } else {
-            try {
-                console.log('TAME library error: User defined string length not valid! length: ' + len);
-                console.log('Max. string length: ' + instance.maxStringLen);
-            } catch(e){}
-            return false;
-        } 
-    }
-    
-    
-    /**
-     * The function returns the IndexGroup for a PLC variable address.
-     * 
-     * @param {Object} req            An object with the address or the name for the request.
-     * @return {Number} indexGroup  The IndexGroup for the ADS request. 
-     */
-    function getIndexGroup(req) {
-        var indexGroup;
-        
-        if (req.addr) {
-            //Try to get the IndexGroup by address
-            if (typeof req.addr == 'string' && req.addr.charAt(0) == '%') {
-                if (req.addr.charAt(2) == 'X') {
-                    //Bit addresses.
-                    indexGroup = indexGroups[req.addr.substr(1, 2)];   
-                } else {
-                    //Byte addresses.
-                    indexGroup = indexGroups[req.addr.substr(1, 1)];
-                }
-            } else {
-                try {
-                    console.log('TAME library error: Wrong address definition, should be a string and start with "%"!');
-                    console.log(req);
-                } catch (e) {}
-                return;
-            }
-        } else if (req.name) {
-            //Try to get the IndexGroup by name
-            if (typeof req.name == 'string') {
-                try {
-                    indexGroup = symTable[req.name].indexGroup;
-                } catch(e) {
-                    try {
-                        console.log('TAME library error: Can\'t get the IndexGroup for this request!');
-                        console.log('TAME library error: Please check the variable name.');
-                        console.log(e);
-                        console.log(req);
-                        } catch (e) {}
-                    return;
-                }
-            } else {
-                try {
-                    console.log('TAME library error: Varible name should be a string!');
-                    console.log(req);
-                } catch (e) {}
-                return;
-            }    
-        } else {
-            try {
-                console.log('TAME library error: Neither a name nor an address for the variable/request defined!');
-                console.log(req);
-            } catch (e) {}
-            return;
-        }
-        
-        if (isNaN(indexGroup)) {
-            try {
-                console.log('TAME library error: IndexGroup is not a number, check address or name definition of the variable/request!');
-                console.log(req);
-            } catch (e) {}
-        }
-        
-        return indexGroup;
-    }
-    
-    
-    /**
-     * The function returns the IndexOffset for a PLC variable address.
-     * 
-     * @param {Object} req            An object with the address or the name for the request.
-     * @return {Number} indexOffset The IndexOffset for the ADS request. 
-     */
-    function getIndexOffset(req) {
-        var indexOffset, numString = '', mxaddr = [];
-        
-        if (req.addr) {
-            //Try to get the IndexOffset by address
-            if (typeof req.addr == 'string' && req.addr.charAt(0) == '%') {
-                if (req.addr.charAt(2) == 'X') {
-                    //Bit req.addresses.
-                    numString = req.addr.substr(3);
-                    mxaddr = numString.split('.');
-                    indexOffset = mxaddr[0] * 8 + mxaddr[1] * 1;
-                } else {
-                    //Byte addresses.
-                    indexOffset = parseInt(req.addr.substr(3), 10);
-                    //Address offset is used if only one item of an array
-                    //should be sent.
-                    if (typeof req.addrOffset == 'number') {
-                        indexOffset += req.addrOffset;
-                    }
-                }
-            } else {
-                try {
-                    console.log('TAME library error: Wrong address definition, should be a string and start with "%"!');
-                    console.log(req);
-                } catch (e) {}
-                return;
-            }
-        } else if (req.name) {
-            //Try to get the IndexOffset by name
-            if (typeof req.name == 'string') {
-                try {
-                    indexOffset = symTable[req.name].indexOffset;
-                    //Address offset is used if only one item of an array
-                    //should be sent.
-                    if (typeof req.addrOffset == 'number') {
-                        indexOffset += req.addrOffset;
-                    }
-                } catch(e) {
-                    try {
-                        console.log('TAME library error: Can\'t get the IndexOffset for this request!');
-                        console.log('TAME library error: Please check the variable name.');
-                        console.log(e);
-                        console.log(req);
-                    } catch (e) {}
-                    return;
-                }
-            } else {
-                try {
-                    console.log('TAME library error: Varible name should be a string!');
-                    console.log(req);
-                } catch (e) {}
-                return;
-            }    
-        } else {
-            try {
-                console.log('TAME library error: Neither a name nor an address for the variable/request defined!');
-                console.log(req);
-            } catch (e) {}
-            return;
-        }
-        
-        if (isNaN(indexOffset)) {
-            try {
-                console.log('TAME library error: IndexOffset is not a number, check address or name definition of the variable/request.');
-                console.log(req);
-            } catch (e) {}
-        }
-        
-        return indexOffset;  
-    }
-    
-    
-    /**
-     * This function creates an XMLHttpRequest object. 
-     */
-    function createXMLHttpReq() {
-        var xmlHttpReq;
-        
-        if (XMLHttpRequest) {
-            //Create the XMLHttpRequest object.
-            //Mozilla, Opera, Safari and Internet Explorer (> v7)
-            xmlHttpReq = new XMLHttpRequest();
-        } else {
-            //Internet Explorer 6 and older
-            try {
-                xmlHttpReq = new ActiveXObject('Msxml2.XMLHTTP');
-            } catch(e) {
-                try {
-                    xmlHttpReq = new ActiveXObject('Microsoft.XMLHTTP');
-                } catch(e) {
-                    xmlHttpReq = null;
-                    try {
-                        console.log('TAME library error: Failed Creating XMLHttpRequest-Object!');
-                    } catch(e) {}
-                }
-            }
-        }
-        return xmlHttpReq;
-    }    
-    
-    
-    /**
-     * Create the objects for SOAP and XMLHttpRequest and send the request.
-     * 
-     * @param {Object} adsReq   The object containing the arguments of the ADS request.
-     */
-    function createRequest(adsReq) {
-        
-        if (adsReq.reqDescr.debug) {
-            try {
-                console.log(adsReq);
-            } catch(e) {}
-        }
-        
-        adsReq.send = function() {
-            
-            var soapReq, async;
-
-            //Cancel the request, if the last on with the same ID is not finished.
-            if (typeof this.reqDescr.id === 'number' && currReq[this.reqDescr.id] > 0) {
-                try {
-                    console.log('TAME library warning: Request dropped (last request with ID ' + adsReq.reqDescr.id + ' not finished!)');
-                } catch(e) {}
-                currReq[this.reqDescr.id]++;
-                if (currReq[this.reqDescr.id] <= instance.maxDropReq) {
-                    return;
-                }
-                //Automatic acknowleding after a count of 'maxDropReq' to
-                //prevent stucking.
-                currReq[this.reqDescr.id] = 0;
-            }
-            
-            //Check if this should be a synchronous or a asynchronous XMLHttpRequest
-            //adsReq.sync is used internal and it's most important, then comes reqDescr.sync and
-            //at last the global parameter 
-            if (adsReq.sync === true) {
-                async = false;
-            } else if (this.reqDescr.sync === true) {
-                async = false;
-            } else if (this.reqDescr.sync === false) {
-                async = true;
-            } else if (service.syncXMLHttp === true) {
-                async = false;
-            } else {
-                async = true;
-            }
-                
-            //Create the XMLHttpRequest object.
-            this.xmlHttpReq = createXMLHttpReq();
-            
-            //Generate the SOAP request.
-            soapReq = '<?xml version=\'1.0\' encoding=\'utf-8\'?>';
-            soapReq += '<soap:Envelope xmlns:xsi=\'http://www.w3.org/2001/XMLSchema-instance\' ';
-            soapReq += 'xmlns:xsd=\'http://www.w3.org/2001/XMLSchema\' ';
-            soapReq += 'xmlns:soap=\'http://schemas.xmlsoap.org/soap/envelope/\'>';
-            soapReq += '<soap:Body><q1:';
-            soapReq += this.method;
-            soapReq += ' xmlns:q1=\'http://beckhoff.org/message/\'><netId xsi:type=\'xsd:string\'>';
-            soapReq += netId;
-            soapReq += '</netId><nPort xsi:type=\'xsd:int\'>';
-            soapReq += port;
-            soapReq += '</nPort><indexGroup xsi:type=\'xsd:unsignedInt\'>';
-            soapReq += this.indexGroup;
-            soapReq += '</indexGroup><indexOffset xsi:type=\'xsd:unsignedInt\'>';
-            soapReq += this.indexOffset;
-            soapReq += '</indexOffset>';
-    
-            if ((this.method === 'Read' || this.method === 'ReadWrite') && this.reqDescr.readLength > 0) {
-                soapReq += '<cbRdLen xsi:type=\'xsd:int\'>';
-                soapReq += this.reqDescr.readLength;
-                soapReq += '</cbRdLen>';
-            }
-            if (this.pData && this.pData.length > 0) {
-                soapReq += '<pData xsi:type=\'xsd:base64Binary\'>';
-                soapReq += this.pData;
-                soapReq += '</pData>';
-            }
-            if (this.pwrData && this.pwrData.length > 0) {
-                soapReq += '<pwrData xsi:type=\'xsd:base64Binary\'>';
-                soapReq += this.pwrData;
-                soapReq += '</pwrData>';
-            }
-            soapReq += '</q1:';
-            soapReq += this.method;
-            soapReq += '></soap:Body></soap:Envelope>';
-            
-            //Send the AJAX request.
-            if (typeof this.xmlHttpReq === 'object') {
-    
-                this.xmlHttpReq.open('POST', url, async);
-    
-                this.xmlHttpReq.setRequestHeader('SOAPAction', 'http://beckhoff.org/action/TcAdsSync.' + this.method);
-                this.xmlHttpReq.setRequestHeader('Content-Type', 'text/xml; charset=utf-8');
-                
-                if (async === true) {
-                    //asynchronous request
-                    this.xmlHttpReq.onreadystatechange = function() {
-                        if ((adsReq.xmlHttpReq.readyState === 4) && (adsReq.xmlHttpReq.status === 200)) {
-                            instance.parseResponse(adsReq);
-                        }
-                    };
-                    this.xmlHttpReq.send(soapReq);  
-                } else {
-                    //synchronous request
-                    this.xmlHttpReq.send(soapReq);
-                    instance.parseResponse(adsReq);   
-                }
-    
-                //Request with index 'id' sent.
-                if (typeof this.reqDescr.id === 'number') {
-                    currReq[this.reqDescr.id] = 1;
-                }
-            }
-        };
-        return adsReq;
-    }
-    
-    
-    /**
-     * Function for checking the input values when writing numeric PLC variables.
-     * 
-     * @param {Object} item
-     * @param {String} type
-     * @param {Number} min
-     * @param {Number} max
-     */
-    function checkValue(item, type, min, max){
-        var val;
-        
-        //Test if value is valid.
-        if (typeof item.val == 'string') {
-            if (type === 'REAL' || type === 'LREAL') {
-                val = parseFloat(item.val);
-            } else {
-                val = parseInt(item.val, 10);
-            }
-        } else if (typeof item.val == 'number') {
-            val = item.val;
-        } else {
-            try {
-                console.log('TAME library error: Wrong variable type for a numeric variable in write request!');
-                console.log('TAME library error: Variable type should be number or string, but is ' + typeof item.val);
-                console.log(item);
-            } catch (e) {}
-            val = 0;
-        }
-        
-        if (isNaN(val)) {
-            val = 0;
-            try {
-                console.log('TAME library error: Value of a numeric variable in write request is not a number.');
-                console.log(item);
-            } catch (e) {}
-        }
-        
-        //Check bounds
-        if (instance.useCheckBounds === true) {
-            if (type === 'LREAL') {
-                if (!isFinite(val)) {
-                    try {
-                        console.log('TAME library warning: Limit for LREAL value exceeded!');
-                        console.log('Upper limit: ' + Number.MAX_VALUE);
-                        console.log('Lower limit: ' + Number.MIN_VALUE);
-                        console.log('value: ' + val);
-                        console.log(item);
-                    } catch (e) {}
-                }
-            } else if (type === 'REAL') {
-                if (val > 0) {
-                    if (val < 1.175495e-38) {  
-                        try {
-                            console.log('TAME library warning: Lower limit for positive REAL value exceeded!');
-                            console.log('limit: 1.175495e-38');
-                            console.log('value: ' + val);
-                            console.log(item);
-                        } catch (e) {}
-                        val = 1.175495e-38;
-                    } else if (val > 3.402823e+38) {
-                        try {
-                            console.log('TAME library warning: Upper limit for positive REAL value exceeded!');
-                            console.log('limit: 3.402823e+38');
-                            console.log('value: ' + val);
-                            console.log(item);
-                        } catch (e) {}
-                        val = 3.402823e+38;
-                    }
-                } else if (val < 0) {
-                    if (val > -1.175495e-38) {                   
-                        try {
-                            console.log('TAME library warning: Upper limit for negative REAL value exceeded!');
-                            console.log('limit: -1.175495e-38');
-                            console.log('value: ' + val);
-                            console.log(item);
-                        } catch (e) {}
-                        val = -1.175495e-38;
-                    } else if (val < -3.402823e+38) {
-                        try {
-                            console.log('TAME library warning: Lower limit for negative REAL value exceeded!');
-                            console.log('limit: -3.402823e+38');
-                            console.log('value: ' + val);
-                            console.log(item);
-                        } catch (e) {}
-                        val = -3.402823e+38;
-                    }
-                }
-            } else {
-                if (val < min) {
-                    try {
-                        console.log('TAME library warning: Lower limit for numeric value exceeded!');
-                        console.log('type: ' + type);
-                        console.log('limit: ' + min);
-                        console.log('value: ' + val);
-                        console.log(item);
-                    } catch (e) {}
-                    val = min;
-                }
-                else if (val > max) {
-                    try {
-                        console.log('TAME library warning: Upper limit for numeric value exceeded!');
-                        console.log('type: ' + type);
-                        console.log('limit: ' + max);
-                        console.log('value: ' + val);
-                        console.log(item);
-                    } catch (e) {}
-                    val = max;
-                }
-            }
-        }
-        
-        return val;
-    }
-    
-    
-    /**
-     * Get type and format and return it in an array. Create an
-     * item.type entry if it doesn't exist.
-     * 
-     * @param {Object} item     An item of a variable list.
-     * @return {Array} arr      An array with type and format. 
-     */
-    function getTypeAndFormat(item) {
-        var arr = [];
-        if (typeof item.type == 'string') {
-            //Type is defined
-            arr = item.type.split('.');
-            if (arr.length > 2) {
-                //Join the formatting string if there were points in it.
-                arr[1] = arr.slice(1).join('.');
-            } 
-        } else if (symTableOk && typeof item.name == 'string') {
-            //Try to get the type from the symbol table and
-            //create the item.type property 
-            try {
-                arr[0] = symTable[item.name].type;
-                if (arr[0] === 'STRING') {
-                    arr[1] = symTable[item.name].stringLength;
-                } else if (typeof item.format == 'string') {
-                    arr[1] = item.format;
-                } else if (typeof item.decPlaces  == 'number') {
-                    arr[1] = item.decPlaces;
-                } else if (typeof item.dp  == 'number') {
-                    arr[1] = item.dp;
-                }
-            } catch(e) {
-                try {
-                    console.log('TAME library error: A problem occured while reading a data type from the symbol table!');
-                    console.log(e);
-                    console.log(item);
-                } catch(e){}
-            }
-        } else {
-            try {
-                console.log('TAME library error: Could not get the type of the item!');
-                console.log(item);
-            } catch(e){}
-        }
-        return arr;
     }
     
     
@@ -2074,7 +2017,7 @@ TAME.WebServiceClient = function (service) {
         len = plcTypeLen[type];
         
         //Set the variable name to upper case.
-        if (typeof args.name == 'string') { 
+        if (typeof args.name === 'string') { 
             args.name = args.name.toUpperCase();
         }
         
@@ -2090,10 +2033,8 @@ TAME.WebServiceClient = function (service) {
                         len = symTable[args.name].stringLength;
                         type += '.' + len;
                     } catch(e) {
-                        try {
-                            console.log('TAME library error: A problem occured while reading the string length from the symbol table!');
-                            console.log(e);
-                        } catch(e){}
+                        log('TAME library error: A problem occured while reading the string length from the symbol table!');
+                        log(e);
                     }
                 }
                 len++; //Termination
@@ -2103,16 +2044,16 @@ TAME.WebServiceClient = function (service) {
             case 'DT':
             case 'DATE':
                 //Append the format string to the data type.
-                if (typeof args.format == 'string') {
+                if (typeof args.format === 'string') {
                     type += '.' + args.format;
                 }
                 break;
             case 'REAL':
             case 'LREAL':
                 //Append the number of decimal places to the data type.
-                if (typeof args.decPlaces  == 'number') {
+                if (typeof args.decPlaces  === 'number') {
                     type += '.' + args.decPlaces;
-                } else if (typeof args.dp  == 'number') {
+                } else if (typeof args.dp  === 'number') {
                     type += '.' + args.dp;
                 }
                 break;
@@ -2182,26 +2123,24 @@ TAME.WebServiceClient = function (service) {
         
         
         //Set the variable name to upper case.
-        if (typeof args.name == 'string') { 
+        if (typeof args.name === 'string') { 
             args.name = args.name.toUpperCase();
         }
         
         //Get the object of the stored data, direct with 'val'
         //for a write request or parsing the name if 'jvar' is given.
-        if (method === 'Write' && typeof args.val == 'object') {
+        if (method === 'Write' && typeof args.val === 'object') {
             dataObj = args.val;
             //arrayLength = args.val.length;
-        } else if (typeof args.jvar == 'string') {
+        } else if (typeof args.jvar === 'string') {
             dataObj = parseVarName(args.jvar);
             //arrayLength = parseVarName(args.jvar).length;
         } else {
-            try {
-                console.log('TAME library error: No data object for this ' + method + '-Request defined!');
-            } catch(e){}
+            log('TAME library error: No data object for this ' + method + '-Request defined!');
         }
         
 
-        if (typeof args.arrlen == 'number') {
+        if (typeof args.arrlen === 'number') {
             //Override array length if manually set
             arrayLength = args.arrlen;
         } else if (symTableOk === true) {
@@ -2209,27 +2148,21 @@ TAME.WebServiceClient = function (service) {
             try {
                 arrayLength = symTable[args.name].arrayLength;
             } catch(e) {
-                try {
-                    console.log('TAME library error: A proble occured while reading the array length from the symbol table!');
-                    console.log(e);
-                } catch(e){}
+                log('TAME library error: A proble occured while reading the array length from the symbol table!');
+                log(e);
             }
         } else {
-            try {
-                console.log('TAME library error: Can\'t get the array length for this request!');
-                console.log(e);
-            } catch(e){}
+            log('TAME library error: Can\'t get the array length for this request!');
+            log(e);
         }
         
         //Check if only one item should be written.
-        if (typeof args.item == 'number' && !isNaN(args.item) && method === 'Write') {
+        if (typeof args.item === 'number' && !isNaN(args.item) && method === 'Write') {
             wrtOneOnly = true;
             if (args.item < 0 || args.item > arrayLength - 1) {
-                try {
-                    console.log('TAME library error: Wrong value for "item"!');
-                    console.log('item: ' + args.item);
-                    console.log('Last array index: ' + (arrayLength - 1));
-                } catch(e){}
+                log('TAME library error: Wrong value for "item"!');
+                log('item: ' + args.item);
+                log('Last array index: ' + (arrayLength - 1));
             }
         }
         
@@ -2239,11 +2172,11 @@ TAME.WebServiceClient = function (service) {
         function createStructArr() {
             //Parse the name of the structure definiton, if it is passed
             //as a string.
-            if (typeof args.def == 'string') {
+            if (typeof args.def === 'string') {
                 args.def = parseVarName(args.def);
             } else if (typeof args.def != 'object') {
                 try {
-                    console.log('TAME library error: No structure definition found!');
+                    log('TAME library error: No structure definition found!');
                 } catch(e){}
             }
             
@@ -2252,7 +2185,7 @@ TAME.WebServiceClient = function (service) {
                 //Separate data type and length.
                 defArr = args.def[elem].split('.');
                 
-                if (defArr[0] == 'ARRAY') {
+                if (defArr[0] === 'ARRAY') {
                     lenArrElem = parseInt(defArr[1], 10);
                     defArr.shift();
                     defArr.shift();
@@ -2262,8 +2195,8 @@ TAME.WebServiceClient = function (service) {
                 
                 for (i = 0; i < lenArrElem; i++) {
                     //Set the length of the PLC variable.
-                    if (defArr[0] == 'STRING') {
-                        if (typeof defArr[1] == 'string') {
+                    if (defArr[0] === 'STRING') {
+                        if (typeof defArr[1] === 'string') {
                             strlen = parseInt(defArr[1], 10);
                         }
                         vlen = (isValidStringLen(strlen) ? strlen : plcTypeLen[defArr[0]]) + 1;
@@ -2329,12 +2262,12 @@ TAME.WebServiceClient = function (service) {
                 for (elem in args.def) {
                     defArr = args.def[elem].split('.');
                     
-                    if (defArr[0] == 'ARRAY') {
+                    if (defArr[0] === 'ARRAY') {
                         lenArrElem = parseInt(defArr[1], 10);
                         lastDefArr = defArr.length - 1;
                         
                         for (j = 0; j < lenArrElem; j++) {
-                            if (defArr[lastDefArr] == 'SP') {
+                            if (defArr[lastDefArr] === 'SP') {
                                 reqDescr.items[cnt] = {
                                     jvar: i + '.' + elem + j
                                 };
@@ -2356,13 +2289,13 @@ TAME.WebServiceClient = function (service) {
                             
                             if (method === 'Write') {
                                 if (wrtOneOnly) {
-                                    if (defArr[lastDefArr] == 'SP') {
+                                    if (defArr[lastDefArr] === 'SP') {
                                         reqDescr.items[cnt].val = dataObj[args.item][elem + j];
                                     } else {
                                         reqDescr.items[cnt].val = dataObj[args.item][elem][j];
                                     }
                                 } else {
-                                    if (defArr[lastDefArr] == 'SP') {
+                                    if (defArr[lastDefArr] === 'SP') {
                                         reqDescr.items[cnt].val = dataObj[i][elem + j];
                                     } else {
                                         reqDescr.items[cnt].val = dataObj[i][elem][j];
@@ -2422,17 +2355,17 @@ TAME.WebServiceClient = function (service) {
                 case 'DT':
                 case 'DATE':
                     //Append the format string to the data type.
-                    if (typeof args.format == 'string') {
+                    if (typeof args.format === 'string') {
                         type += '.' + args.format;
                     }
                     break;
                 case 'REAL':
                 case 'LREAL':
                     //Append the number of decimal places to the data type.
-                    if (typeof args.decPlaces  == 'number') {
+                    if (typeof args.decPlaces  === 'number') {
                         type += '.' + args.decPlaces;
                     } 
-                    else if (typeof args.dp  == 'number') {
+                    else if (typeof args.dp  === 'number') {
                         type += '.' + args.dp;
                     }
                     break;
@@ -2513,30 +2446,26 @@ TAME.WebServiceClient = function (service) {
             j;
         
         //Set the variable name to upper case.
-        if (typeof args.name == 'string') { 
+        if (typeof args.name === 'string') { 
             args.name = args.name.toUpperCase();
         }
         
         //Get the object of the stored data, direct with 'val'
         //for a write request or parsing the name if 'jvar' is given.
-        if (method === 'Write' && typeof args.val == 'object') {
+        if (method === 'Write' && typeof args.val === 'object') {
             dataObj = args.val;
-        } else if (typeof args.jvar == 'string') {
+        } else if (typeof args.jvar === 'string') {
             dataObj = parseVarName(args.jvar);
         } else {
-            try {
-                console.log('TAME library error: No data object for this ' + method + '-Request defined!');
-            } catch(e){}
+            log('TAME library error: No data object for this ' + method + '-Request defined!');
         }
         
         //Parse the name of the structure definiton, if it is passed
         //as a string.
-        if (typeof args.def == 'string') {
+        if (typeof args.def === 'string') {
             args.def = parseVarName(args.def);
         } else if (typeof args.def != 'object') {
-            try {
-                console.log('TAME library error: No structure defininition found!');
-            } catch(e){}
+            log('TAME library error: No structure defininition found!');
         }
         
         reqDescr = {
@@ -2559,11 +2488,11 @@ TAME.WebServiceClient = function (service) {
         for (elem in args.def) {
             defArr = args.def[elem].split('.');
             
-            if (defArr[0] == 'ARRAY') {
+            if (defArr[0] === 'ARRAY') {
                 lenArrElem = parseInt(defArr[1], 10);
                 lastDefArr = defArr.length - 1;
                 for (j = 0; j < lenArrElem; j++) {
-                    if (defArr[lastDefArr] == 'SP') {
+                    if (defArr[lastDefArr] === 'SP') {
                         reqDescr.items[cnt] = {
                             jvar: elem + j
                         };
@@ -2583,7 +2512,7 @@ TAME.WebServiceClient = function (service) {
                         }
                     }
                     if (method === 'Write') {
-                        if (defArr[lastDefArr] == 'SP') {
+                        if (defArr[lastDefArr] === 'SP') {
                             reqDescr.items[cnt].val = dataObj[elem + j];
                         } else {
                             reqDescr.items[cnt].val = dataObj[elem][j];
@@ -2636,7 +2565,7 @@ TAME.WebServiceClient = function (service) {
             type, format, listlen, len, val, pcount, mod, item, i, idx;
         
         //Set the variable name to upper case.
-        if (typeof reqDescr.name == 'string') { 
+        if (typeof reqDescr.name === 'string') { 
             reqDescr.name = reqDescr.name.toUpperCase();
         }
         
@@ -2717,7 +2646,7 @@ TAME.WebServiceClient = function (service) {
             item, format, type, listlen, mod, vlen, strlen, idx, startaddr;
             
         //Set the variable name to upper case.
-        if (typeof reqDescr.name == 'string') { 
+        if (typeof reqDescr.name === 'string') { 
             reqDescr.name = reqDescr.name.toUpperCase();
         }
 
@@ -2736,8 +2665,8 @@ TAME.WebServiceClient = function (service) {
                 format = arrType[1];
 
                 //Set the length of the PLC variable.
-                if (type == 'STRING') { 
-                    if (typeof format == 'string') {
+                if (type === 'STRING') { 
+                    if (typeof format === 'string') {
                         strlen = parseInt(format, 10);
                     }
                     vlen = (isValidStringLen(strlen) ?  strlen : plcTypeLen[type]) + 1;
@@ -2801,7 +2730,7 @@ TAME.WebServiceClient = function (service) {
             item = itemList[idx];
             
             //Set the variable name to upper case.
-            if (typeof item.name == 'string') { 
+            if (typeof item.name === 'string') { 
                 item.name = item.name.toUpperCase();
             }
             
@@ -2854,32 +2783,26 @@ TAME.WebServiceClient = function (service) {
      *  Prints the symbol table to the console.
      */
     this.logSymbols = function() {
-        try { 
-            console.log(symTable);
-        } catch(e) {}
+        log(symTable);
     };
     
     
     /**
      * Converts the Symbol Table to a JSON string.
      * 
-     * @return {Array} jstr The Symbol Table as a JSON string . 
+     * @return {Array}  jstr    The Symbol Table as a JSON string . 
      */
     this.getSymbolsAsJSON = function() {
         var jstr;
         
         if (typeof JSON !== 'object') {
-            try {
-                console.log('TAME library error: No JSON parser found.');
-                } catch (e) {}
+            log('TAME library error: No JSON parser found.');
         } else {
             try {
                 jstr = JSON.stringify(symTable);
                 return jstr;
             } catch (e) {
-                try {
-                    console.log('TAME library error: Could not convert the Symbol Table to JSON:' + e);
-                } catch (e) {}
+                log('TAME library error: Could not convert the Symbol Table to JSON:' + e);
             }
         }
     };
@@ -2888,21 +2811,21 @@ TAME.WebServiceClient = function (service) {
     /**
      * Reads the Symbol Table from a JSON string
      * 
-     * @param {String} jstr A JSON string with the symbols.
+     * @param {String}  jstr    A JSON string with the symbols.
      */
     this.setSymbolsFromJSON = function(jstr) {
         if (typeof JSON !== 'object') {
-            try {
-                console.log('TAME library error: No JSON parser found.');
-                } catch (e) {}
+            log('TAME library error: No JSON parser found.');
         } else {
             try {
                 symTable = JSON.parse(jstr);
             } catch (e) {
-                try {
-                    console.log('TAME library error: Could not read the Symbol Table from JSON:' + e);
-                } catch (e) {}
+                log('TAME library error: Could not create the Symbol Table from JSON:' + e);
+                    return;
             }
+            symTableOk = true;
+            log('TAME library info: Symbol Table successfully created from JSON data.');
+                return;
         }
     };
     
@@ -3006,7 +2929,7 @@ TAME.WebServiceClient = function (service) {
         errorCode, errorText;
         
         //Acknowledge the receive of a request with index 'id'.
-        if (typeof adsReq.reqDescr.id == 'number') {
+        if (typeof adsReq.reqDescr.id === 'number') {
             currReq[adsReq.reqDescr.id] = 0;
         }
         
@@ -3018,9 +2941,7 @@ TAME.WebServiceClient = function (service) {
             } catch (e) {
                 errorCode = '-';
             }
-            try {
-                console.log('TAME library error: Message from server:  ' + errorText + ' (' + errorCode + ')');
-            } catch (e) {}
+            log('TAME library error: Message from server:  ' + errorText + ' (' + errorCode + ')');
             
             return;
         } catch (e) {
@@ -3028,7 +2949,7 @@ TAME.WebServiceClient = function (service) {
         }
         
         //Normalize data (esp. for Firefox, who splits data in 4k chunks).
-        if (typeof response.normalize == 'function') {
+        if (typeof response.normalize === 'function') {
             response.normalize();
         }
         
@@ -3051,8 +2972,8 @@ TAME.WebServiceClient = function (service) {
         }
         
         //Call the On-Complete-Script.
-        if (typeof adsReq.reqDescr.oc == 'function') {
-            if (typeof adsReq.reqDescr.ocd == 'number') {
+        if (typeof adsReq.reqDescr.oc === 'function') {
+            if (typeof adsReq.reqDescr.ocd === 'number') {
                 window.setTimeout(adsReq.reqDescr.oc, adsReq.reqDescr.ocd);
             }
             else {
@@ -3082,7 +3003,7 @@ TAME.WebServiceClient = function (service) {
             }
         };
         createRequest(adsReq).send();
-    };
+    }
      
    
     /**
@@ -3102,9 +3023,7 @@ TAME.WebServiceClient = function (service) {
             dataSubString = dataString.substr(4, 4);
             uploadLength = subStringToData(dataSubString, 'DWORD');             
         } catch (e) {
-            try {
-                console.log('TAME library error: Parsing of UploadInfo failed:' + e);
-            } catch (e) {}
+            log('TAME library error: Parsing of UploadInfo failed:' + e);
             return;
         }
         
@@ -3217,19 +3136,11 @@ TAME.WebServiceClient = function (service) {
             }
             symTableOk = true;
              
-            try {
-                console.log('TAME library info: End of reading the UploadInfo.');
-                console.log('TAME library info: Symbol table ready.');
-            } catch (e) {}
-            
-            if (service.isTaskerScript === true) {
-                    writeSymFile();
-            }
+            log('TAME library info: End of reading the UploadInfo.');
+            log('TAME library info: Symbol table ready.');
               
         } catch (e) {
-            try {
-                console.log('TAME library error: Parsing of uploaded symbol information failed:' + e);
-            } catch (e) {}
+            log('TAME library error: Parsing of uploaded symbol information failed:' + e);
             return;
         }
     }
@@ -3252,7 +3163,7 @@ TAME.WebServiceClient = function (service) {
         xmlHttpReq.setRequestHeader('Content-Type', 'text/xml');
         xmlHttpReq.send(null);
 
-        if (typeof DOMParser == 'function') {
+        if (typeof DOMParser === 'function') {
             try {
                 symFile = (new DOMParser()).parseFromString(xmlHttpReq.responseText, "text/xml");
                 allSymbols = symFile.getElementsByTagName('Symbols')[0];
@@ -3297,17 +3208,9 @@ TAME.WebServiceClient = function (service) {
      * Get the names of the PLC variables using the upload info.
      */
     if (service.dontReadUpload === true) {
-        
-        try {
-            console.log('TAME library info: Reading of the UploadInfo deactivated. Symbol Table could not be created.');
-        } catch (e) {}
-        
+        log('TAME library info: Reading of the UploadInfo deactivated. Symbol Table could not be created.');
     } else {
-        
-        try {
-            console.log('TAME library info: Start of reading the UploadInfo.');
-        } catch (e) {}
-        
+        log('TAME library info: Start of reading the UploadInfo.');
         //Get the UploadInfo.
         getUploadInfo();
     }
@@ -3319,6 +3222,8 @@ TAME.WebServiceClient = function (service) {
  * Function for creating the Webservice Client.
  * 
  * @param {Object} service  Contains the paramters of the webservice.
+ * @return {Object}         An instance of the Webservice Client.
+ * 
  */
 TAME.WebServiceClient.createClient = function(service) {
     return new TAME.WebServiceClient(service);
