@@ -1,5 +1,5 @@
 /*!
- * TAME [TwinCAT ADS Made Easy] V3.1 beta 2
+ * TAME [TwinCAT ADS Made Easy] V3.1
  * 
  * Copyright (c) 2009-2012 Thomas Schmidt; t.schmidt.p1 at freenet.de
  * 
@@ -10,8 +10,7 @@
  */
 
 
-/*jslint plusplus: true */
-
+/*jslint plusplus: true, bitwise: true */
 
 /**
  * This is the global TAME object. Used as a namespace to store values and functions.
@@ -44,10 +43,28 @@ var TAME = {
  * @param {Object} service  Contains the paramters of the Web Service.
  */
 TAME.WebServiceClient = function (service) {
+    
+    //======================================================================================
+    //                                Things should come first
+    //======================================================================================
 
     "use strict";
     
-
+    /**
+     * Wrapper for console messages.
+     * 
+     * @param {Mixed} message  The message to be logged.
+     */
+    function log(message) {
+        try{
+            window.console.log(message);
+         } catch(e) {
+            //fallback
+            alert(message);
+        }
+    }
+    
+    
     //======================================================================================
     //                                Initialize Variables
     //======================================================================================
@@ -173,6 +190,8 @@ TAME.WebServiceClient = function (service) {
         syncXmlHttp = false;
     }
     
+    
+    
     //======================================================================================
     //                                Initialize Properties
     //======================================================================================
@@ -201,20 +220,6 @@ TAME.WebServiceClient = function (service) {
     //======================================================================================
     //                                 Helper Functions
     //======================================================================================
-    
-    /**
-     * Wrapper for console messages
-     * 
-     * @param {Mixed} message  The message to be logged.
-     */
-    function log(message) {
-        try{
-            console.log(message);
-         } catch(e) {
-            //fallback
-            alert(message);
-        }
-    }
     
     /**
      * Decode variable names passed as strings and return the object,
@@ -284,19 +289,20 @@ TAME.WebServiceClient = function (service) {
             }
             return obj[a[1]];
             
-        } else {
-            //Store data if passed.
-            if (data !== undefined) {
-                if (typeof prefix === 'string') {
-                    data = prefix + data;
-                }
-                if (typeof suffix === 'string') {
-                    data = data + suffix;
-                }
-                obj[arr[i]] = data;
-            }
-            return obj[arr[i]];
         }
+        
+        //Store data if passed.
+        if (data !== undefined) {
+            if (typeof prefix === 'string') {
+                data = prefix + data;
+            }
+            if (typeof suffix === 'string') {
+                data = data + suffix;
+            }
+            obj[arr[i]] = data;
+        }
+        return obj[arr[i]];
+        
     }
     
     
@@ -308,20 +314,20 @@ TAME.WebServiceClient = function (service) {
     function isValidStringLen(len) {
         if (len === undefined) {
             return false;
-        } else if (! isNaN(len) && len > 0 && len <= instance.maxStringLen) {
+        }       
+        if (! isNaN(len) && len > 0 && len <= instance.maxStringLen) {
             return true;
-        } else {
-            log('TAME library error: User defined string length not valid! length: ' + len);
-            log('Max. string length: ' + instance.maxStringLen);
-            return false;
         } 
+        log('TAME library error: User defined string length not valid! length: ' + len);
+        log('Max. string length: ' + instance.maxStringLen);
+        return false;
     }
     
     
     /**
      * The function returns the IndexGroup for a PLC variable address.
      * 
-     * @param {Object} req            An object with the address or the name for the request.
+     * @param {Object} req          An object with the address or the name for the request.
      * @return {Number} indexGroup  The IndexGroup for the ADS request. 
      */
     function getIndexGroup(req) {
@@ -377,7 +383,7 @@ TAME.WebServiceClient = function (service) {
     /**
      * The function returns the IndexOffset for a PLC variable address.
      * 
-     * @param {Object} req            An object with the address or the name for the request.
+     * @param {Object} req          An object with the address or the name for the request.
      * @return {Number} indexOffset The IndexOffset for the ADS request. 
      */
     function getIndexOffset(req) {
@@ -390,7 +396,7 @@ TAME.WebServiceClient = function (service) {
                     //Bit req.addresses.
                     numString = req.addr.substr(3);
                     mxaddr = numString.split('.');
-                    indexOffset = mxaddr[0] * 8 + mxaddr[1] * 1;
+                    indexOffset = parseInt(mxaddr[0], 10) * 8 + parseInt(mxaddr[1], 10);
                 } else {
                     //Byte addresses.
                     indexOffset = parseInt(req.addr.substr(3), 10);
@@ -443,23 +449,25 @@ TAME.WebServiceClient = function (service) {
     
     
     /**
-     * This function creates an XMLHttpRequest object. 
+     * This function creates an XMLHttpRequest object.
+     * 
+     * @return {Object} xmlHttpReq  A XMLHttpRequest.
      */
     function createXMLHttpReq() {
         var xmlHttpReq;
         
-        if (XMLHttpRequest) {
+        if (window.XMLHttpRequest) {
             //Create the XMLHttpRequest object.
             //Mozilla, Opera, Safari and Internet Explorer (> v7)
-            xmlHttpReq = new XMLHttpRequest();
+            xmlHttpReq = new window.XMLHttpRequest();
         } else {
             //Internet Explorer 6 and older
             try {
-                xmlHttpReq = new ActiveXObject('Msxml2.XMLHTTP');
+                xmlHttpReq = new window.ActiveXObject('Msxml2.XMLHTTP');
             } catch(e) {
                 try {
-                    xmlHttpReq = new ActiveXObject('Microsoft.XMLHTTP');
-                } catch(e) {
+                    xmlHttpReq = new window.ActiveXObject('Microsoft.XMLHTTP');
+                } catch(ex) {
                     xmlHttpReq = null;
                     log('TAME library error: Failed Creating XMLHttpRequest-Object!');
                 }
@@ -1099,7 +1107,7 @@ TAME.WebServiceClient = function (service) {
                 }
                 break;
             case 'TIME':
-                val = item.val * 1;
+                val = parseInt(item.val, 10);
                 val = toMillisec(val, format);
                 if (val < 0) {
                     val = 0;
@@ -1132,231 +1140,6 @@ TAME.WebServiceClient = function (service) {
     //                                  Decoder Functions
     //======================================================================================
 
-    /**
-     * Convert data string to USINT/BYTE.
-     * 
-     * @param {String} string
-     */
-    function parsePlcUsint(string) {
-        var hexs = numToHexString(string.charCodeAt(0));
-        return parseInt(hexs, 16);
-    }
-
-    /**
-     * Convert data string to SINT.
-     * 
-     * @param {String} string
-     */
-    function parsePlcSint(string) {
-        var dec = parsePlcUsint(string);
-        if (dec > 127) {
-            dec = dec - 256;
-        }
-        return dec;
-    }
-
-    /**
-     * Convert data string to UINT/WORD.
-     * 
-     * @param {String} string
-     */
-    function parsePlcUint(string) {
-        var hexs = numToHexString(string.charCodeAt(1));
-        hexs +=    numToHexString(string.charCodeAt(0));
-        return parseInt(hexs, 16);
-    }
-
-    /**
-     * Convert data string to INT.
-     * 
-     * @param {String} string
-     */
-    function parsePlcInt(string) {
-        var dec = parsePlcUint(string);
-        if (dec > 32767) {
-            dec = dec - 65536;
-        }
-        return dec;
-    }
-
-    /**
-     * Convert data string to UDINT/DWORD.
-     * 
-     * @param {String} string
-     */
-    function parsePlcUdint(string) {
-        var hexs = numToHexString(string.charCodeAt(3)); 
-        hexs +=    numToHexString(string.charCodeAt(2));
-        hexs +=    numToHexString(string.charCodeAt(1));
-        hexs +=    numToHexString(string.charCodeAt(0));
-        return parseInt(hexs, 16);
-    }
-
-    /**
-     * Convert data string to DINT.
-     * 
-     * @param {String} string
-     */
-    function parsePlcDint(string) {
-        var dec = parsePlcUdint(string);
-        if (dec > 2147483647) {
-            dec = dec - 4294967296;
-        }
-        return dec;
-    }
-    
-    /**
-     * Convert data string to a formatted time string
-     * 
-     * @param {String} string
-     * @param {String} format
-     */
-    function parsePlcTime(string, format) {
-        var time = parsePlcUdint(string);
-        if (format === undefined) {
-            return time;    //Unformatted: value in milliseconds.
-        } else {
-            return (timeToString(time, format));
-        }
-    }
-    
-    /**
-     * Convert data string to a formatted time of day string.
-     * 
-     * @param {String} string
-     * @param {String} format
-     */
-    function parsePlcTod(string, format) {
-        //Create a date object (time base in the PLC are milliseconds)
-        var time = new Date(parsePlcUdint(string));
-        
-        //Time zone correction.
-        time = new Date(time.getTime() + time.getTimezoneOffset() * 60000);
-        
-        if (format === undefined) {
-            return time;
-        } else {
-            return (dateToString(time, format));
-        }
-    }
-    
-     /**
-      * Convert data string to a formatted date/time of day string.
-      * 
-      * @param {String} string
-      * @param {String} format
-      */
-    function parsePlcDate(string, format) {
-        //Converte to milliseconds an create a date object
-        //(time base of DATE/DT variables in the PLC are seconds since 1.1.1970)
-        var date = new Date(parsePlcUdint(string) * 1000);
-        
-        //Time zone correction.
-        date = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
-        
-        if (format === undefined) {
-            return date;
-        } else {
-            return (dateToString(date, format));
-        }
-    }
-
-    /**
-     * Convert data string of a REAL variable
-     * to a JavaScript floating point number.
-     * 
-     * @param {String} string
-     */
-    function parsePlcReal(string) {
-        var mant = 1, 
-            dual = 0.5,
-            num = parsePlcUdint(string),
-            sign, exp, i;
-        
-        //Return if value is zero. 
-        if (num === 0) {
-            return 0;
-        }       
-        //Check the sign bit.
-        sign = ((num >>> 31) === 1) ? '-' : '+';
-        num <<= 1; //Delete the sign bit.
-        //Calculate the exponent.
-        exp = (num >>> 24) - 127;
-        //Calculate the 23 bit mantissa: Shift bits to left and evaluate them.
-        num <<= 8;
-        for (i = 1; i <= 23; i++) {
-            mant += num < 0 ? dual : 0; //Add if left (sign bit) bit is true.
-            num <<= 1;
-            dual /= 2;
-        }
-        return parseFloat(sign + (mant * Math.pow(2, exp)));
-    }
-    
-    /**
-     * Convert data string of a LREAL variable
-     * to a JavaScript floating point number.
-     * 
-     * @param {String} string
-     */
-    function parsePlcLreal(string) {
-        var num = parsePlcUdint(string.substring(4,8)),
-            num2 = parsePlcUdint(string.substring(0,4)),
-            i = 12,
-            mant = 1,
-            dual = 0.5,
-            sign, exp;
-            
-        //Return if value is zero. 
-        if (num === 0 && num2 === 0) {
-            return 0;
-        }
-        //Check the sign bit.
-        sign = ((num >>> 31) === 1) ? '-' : '+';
-        num <<= 1; //Delete the sign bit.
-        //Calculate the exponent.
-        exp = (num >>> 21) - 1023;
-        //Calculate the mantissa. Shift bits to left and evaluate them.
-        //Part 1.
-        num <<= 11;
-        while (i < 32) {
-            mant += num < 0 ? dual : 0; //Add if left (sign bit) bit is true.
-            num <<= 1;
-            dual /= 2;
-            i++;
-        }
-        //Part 2.
-        if ((num2 >>> 31) === 1) {
-            mant += dual;
-            num2 <<= 1;
-            dual /= 2;
-        }
-        while (i < 64) {
-            mant += num2 < 0 ? dual : 0; //Add if left (sign bit) bit is true.
-            num2 <<= 1;
-            dual /= 2;
-            i++;
-        }
-        return parseFloat(sign + (mant * Math.pow(2, exp)));
-    }
-
-
-    /**
-     * Convert data string to string by simply cutting of superfluous characters.
-     * 
-     * @param {String} string
-     */
-     function parsePlcString(string) {
-        /*
-        var len = string.length;
-        for (var i = 0; i < len; i++) {
-            if (string.charCodeAt(i) === 0) {
-                break;
-            }
-        }
-        return string.substr(0, i);
-        */
-       return string.split(String.fromCharCode(0))[0]; 
-    }
 
     /**
      * Convert a number to a hex string.
@@ -1579,6 +1362,230 @@ TAME.WebServiceClient = function (service) {
         }
         return tstring;
     }
+
+    /**
+     * Convert data string to USINT/BYTE.
+     * 
+     * @param {String} string
+     */
+    function parsePlcUsint(string) {
+        var hexs = numToHexString(string.charCodeAt(0));
+        return parseInt(hexs, 16);
+    }
+
+    /**
+     * Convert data string to SINT.
+     * 
+     * @param {String} string
+     */
+    function parsePlcSint(string) {
+        var dec = parsePlcUsint(string);
+        if (dec > 127) {
+            dec = dec - 256;
+        }
+        return dec;
+    }
+
+    /**
+     * Convert data string to UINT/WORD.
+     * 
+     * @param {String} string
+     */
+    function parsePlcUint(string) {
+        var hexs = numToHexString(string.charCodeAt(1));
+        hexs +=    numToHexString(string.charCodeAt(0));
+        return parseInt(hexs, 16);
+    }
+
+    /**
+     * Convert data string to INT.
+     * 
+     * @param {String} string
+     */
+    function parsePlcInt(string) {
+        var dec = parsePlcUint(string);
+        if (dec > 32767) {
+            dec = dec - 65536;
+        }
+        return dec;
+    }
+
+    /**
+     * Convert data string to UDINT/DWORD.
+     * 
+     * @param {String} string
+     */
+    function parsePlcUdint(string) {
+        var hexs = numToHexString(string.charCodeAt(3)); 
+        hexs +=    numToHexString(string.charCodeAt(2));
+        hexs +=    numToHexString(string.charCodeAt(1));
+        hexs +=    numToHexString(string.charCodeAt(0));
+        return parseInt(hexs, 16);
+    }
+
+    /**
+     * Convert data string to DINT.
+     * 
+     * @param {String} string
+     */
+    function parsePlcDint(string) {
+        var dec = parsePlcUdint(string);
+        if (dec > 2147483647) {
+            dec = dec - 4294967296;
+        }
+        return dec;
+    }
+    
+    /**
+     * Convert data string to a formatted time string
+     * 
+     * @param {String} string
+     * @param {String} format
+     */
+    function parsePlcTime(string, format) {
+        var time = parsePlcUdint(string);
+        if (format === undefined) {
+            return time;    //Unformatted: value in milliseconds.
+        }
+        return (timeToString(time, format));
+    }
+    
+    /**
+     * Convert data string to a formatted time of day string.
+     * 
+     * @param {String} string
+     * @param {String} format
+     */
+    function parsePlcTod(string, format) {
+        //Create a date object (time base in the PLC are milliseconds)
+        var time = new Date(parsePlcUdint(string));
+        
+        //Time zone correction.
+        time = new Date(time.getTime() + time.getTimezoneOffset() * 60000);
+        
+        if (format === undefined) {
+            return time;
+        }
+        return (dateToString(time, format));
+    }
+    
+     /**
+      * Convert data string to a formatted date/time of day string.
+      * 
+      * @param {String} string
+      * @param {String} format
+      */
+    function parsePlcDate(string, format) {
+        //Converte to milliseconds an create a date object
+        //(time base of DATE/DT variables in the PLC are seconds since 1.1.1970)
+        var date = new Date(parsePlcUdint(string) * 1000);
+        
+        //Time zone correction.
+        date = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+        
+        if (format === undefined) {
+            return date;
+        }
+        return (dateToString(date, format));
+    }
+
+    /**
+     * Convert data string of a REAL variable
+     * to a JavaScript floating point number.
+     * 
+     * @param {String} string
+     */
+    function parsePlcReal(string) {
+        var mant = 1, 
+            dual = 0.5,
+            num = parsePlcUdint(string),
+            sign, exp, i;
+        
+        //Return if value is zero. 
+        if (num === 0) {
+            return 0;
+        }       
+        //Check the sign bit.
+        sign = ((num >>> 31) === 1) ? '-' : '+';
+        num <<= 1; //Delete the sign bit.
+        //Calculate the exponent.
+        exp = (num >>> 24) - 127;
+        //Calculate the 23 bit mantissa: Shift bits to left and evaluate them.
+        num <<= 8;
+        for (i = 1; i <= 23; i++) {
+            mant += num < 0 ? dual : 0; //Add if left (sign bit) bit is true.
+            num <<= 1;
+            dual /= 2;
+        }
+        return parseFloat(sign + (mant * Math.pow(2, exp)));
+    }
+    
+    /**
+     * Convert data string of a LREAL variable
+     * to a JavaScript floating point number.
+     * 
+     * @param {String} string
+     */
+    function parsePlcLreal(string) {
+        var num = parsePlcUdint(string.substring(4,8)),
+            num2 = parsePlcUdint(string.substring(0,4)),
+            i = 12,
+            mant = 1,
+            dual = 0.5,
+            sign, exp;
+            
+        //Return if value is zero. 
+        if (num === 0 && num2 === 0) {
+            return 0;
+        }
+        //Check the sign bit.
+        sign = ((num >>> 31) === 1) ? '-' : '+';
+        num <<= 1; //Delete the sign bit.
+        //Calculate the exponent.
+        exp = (num >>> 21) - 1023;
+        //Calculate the mantissa. Shift bits to left and evaluate them.
+        //Part 1.
+        num <<= 11;
+        while (i < 32) {
+            mant += num < 0 ? dual : 0; //Add if left (sign bit) bit is true.
+            num <<= 1;
+            dual /= 2;
+            i++;
+        }
+        //Part 2.
+        if ((num2 >>> 31) === 1) {
+            mant += dual;
+            num2 <<= 1;
+            dual /= 2;
+        }
+        while (i < 64) {
+            mant += num2 < 0 ? dual : 0; //Add if left (sign bit) bit is true.
+            num2 <<= 1;
+            dual /= 2;
+            i++;
+        }
+        return parseFloat(sign + (mant * Math.pow(2, exp)));
+    }
+
+
+    /**
+     * Convert data string to string by simply cutting of superfluous characters.
+     * 
+     * @param {String} string
+     */
+     function parsePlcString(string) {
+        /*
+        var len = string.length;
+        for (var i = 0; i < len; i++) {
+            if (string.charCodeAt(i) === 0) {
+                break;
+            }
+        }
+        return string.substr(0, i);
+        */
+       return string.split(String.fromCharCode(0))[0]; 
+    }
+
     
     /**
      * Base64 decoder
@@ -1606,10 +1613,10 @@ TAME.WebServiceClient = function (service) {
             c3 = ((e3 & 3) << 6) | e4;
             
             output += String.fromCharCode(c1);
-            if (e3 != 64) {
+            if (e3 !== 64) {
                 output += String.fromCharCode(c2);
             }
-            if (e4 != 64) {
+            if (e4 !== 64) {
                 output += String.fromCharCode(c3);
             }
         }
@@ -1632,7 +1639,7 @@ TAME.WebServiceClient = function (service) {
         
         switch (type) {
             case 'BOOL':
-                //Does this work?????
+                //Does this work????? Seems like.
                 data = (dataString.charCodeAt(0) != '0');
                 break;
             case 'BYTE':
@@ -1749,7 +1756,7 @@ TAME.WebServiceClient = function (service) {
                     //If variable addresses are used.
                     startaddr = getIndexOffset(adsReq.reqDescr);
                     strAddr = item.addr - startaddr;
-                } else if (adsReq.reqDescr.dataAlign4 === true && plen > 1 && type != 'STRING' && strAddr > 0) {
+                } else if (adsReq.reqDescr.dataAlign4 === true && plen > 1 && type !== 'STRING' && strAddr > 0) {
                     //Compute the address for a 4-byte alignment in case of a structure.
                     mod = strAddr % plen;
                     if (mod > 0) {
@@ -1793,7 +1800,7 @@ TAME.WebServiceClient = function (service) {
         subStrAddr = 0,
         dataObj = window,
         item, dataString, dataSubString, data, len, type, format, idx, listlen, errorCode, jvar, i,
-        elem, arrayLength, vlenMax, itemSize;
+        arrayLength, vlenMax, itemSize;
         
         
         /**
@@ -1858,53 +1865,58 @@ TAME.WebServiceClient = function (service) {
          */
         function parseStructure() {
             
-            var j, defArr, lenArrElem, lastDefArr;
+            var j, defArr, lenArrElem, lastDefArr, mod, elem;
             
             for (elem in item.def) {
-                defArr = item.def[elem].split('.');
-                if (defArr[0] === 'ARRAY') {
-                    lenArrElem = parseInt(defArr[1], 10);
-                    lastDefArr = defArr.length - 1;
-                    for (j = 0; j < lenArrElem; j++) {
-                        type = defArr[2];
-                        if (defArr[lastDefArr] === 'SP') {
-                            jvar = elem + j;
-                            if (lastDefArr >= 4) {
-                                format = defArr.slice(3, -1).join('.');
+                
+                if (item.def.hasOwnProperty(elem)) {
+                
+                    defArr = item.def[elem].split('.');
+                    if (defArr[0] === 'ARRAY') {
+                        lenArrElem = parseInt(defArr[1], 10);
+                        lastDefArr = defArr.length - 1;
+                        for (j = 0; j < lenArrElem; j++) {
+                            type = defArr[2];
+                            if (defArr[lastDefArr] === 'SP') {
+                                jvar = elem + j;
+                                if (lastDefArr >= 4) {
+                                    format = defArr.slice(3, -1).join('.');
+                                }
+                            } else {
+                                jvar = elem + '.' + j;
+                                if (lastDefArr >= 3) {
+                                    format = defArr.slice(3).join('.');
+                                }
                             }
-                        } else {
-                            jvar = elem + '.' + j;
-                            if (lastDefArr >= 3) {
-                                format = defArr.slice(3).join('.');
+                            //Add index in case of an array of struct
+                            if (i !== undefined) {
+                                jvar = i + '.' + jvar;
                             }
+                            
+                            len = plcTypeLen[type];
+                            checkAlignment();
+                            parseSubStringSlice();
                         }
-                        //Add index in case of an array of struct
+                    } else {
+                        //Check if we are in an array of struct
                         if (i !== undefined) {
-                            jvar = i + '.' + jvar;
+                            jvar = i + '.' + elem;
+                        } else {
+                            jvar = elem;
                         }
                         
+                        type = defArr[0];
+                        format = defArr.slice(1).join('.');
                         len = plcTypeLen[type];
                         checkAlignment();
                         parseSubStringSlice();
                     }
-                } else {
-                    //Check if we are in an array of struct
-                    if (i !== undefined) {
-                        jvar = i + '.' + elem;
-                    } else {
-                        jvar = elem;
-                    }
                     
-                    type = defArr[0];
-                    format = defArr.slice(1).join('.');
-                    len = plcTypeLen[type];
-                    checkAlignment();
-                    parseSubStringSlice();
-                }  
+                }
             }
             
              //Calculate the padding bytes at the end of the structure
-            if (dataAlign4 === true && vlenMax > 1 && type != 'STRING') {
+            if (dataAlign4 === true && vlenMax > 1 && type !== 'STRING') {
                 if (vlenMax > 4) {
                     vlenMax = 4;
                 }
@@ -2116,7 +2128,6 @@ TAME.WebServiceClient = function (service) {
             vlenMax = 0,
             endPadLen = 0,
             mod,
-            elem,
             addr,
             wrtOneOnly,
             arrSymType;
@@ -2153,7 +2164,6 @@ TAME.WebServiceClient = function (service) {
             }
         } else {
             log('TAME library error: Can\'t get the array length for this request!');
-            log(e);
         }
         
         //Check if only one item should be written.
@@ -2170,57 +2180,62 @@ TAME.WebServiceClient = function (service) {
          * Function for creating an descriptor for array of structures.
          */
         function createStructArr() {
+            
+            var elem;
             //Parse the name of the structure definiton, if it is passed
             //as a string.
             if (typeof args.def === 'string') {
                 args.def = parseVarName(args.def);
-            } else if (typeof args.def != 'object') {
-                try {
-                    log('TAME library error: No structure definition found!');
-                } catch(e){}
+            } else if (typeof args.def !== 'object') {
+                log('TAME library error: No structure definition found!');
             }
             
             //Calculate the length of the structure and the padding bytes
             for (elem in args.def) {
-                //Separate data type and length.
-                defArr = args.def[elem].split('.');
                 
-                if (defArr[0] === 'ARRAY') {
-                    lenArrElem = parseInt(defArr[1], 10);
-                    defArr.shift();
-                    defArr.shift();
-                } else {
-                    lenArrElem = 1;
-                }
+                if (args.def.hasOwnProperty(elem)) {
                 
-                for (i = 0; i < lenArrElem; i++) {
-                    //Set the length of the PLC variable.
-                    if (defArr[0] === 'STRING') {
-                        if (typeof defArr[1] === 'string') {
-                            strlen = parseInt(defArr[1], 10);
-                        }
-                        vlen = (isValidStringLen(strlen) ? strlen : plcTypeLen[defArr[0]]) + 1;
+                    //Separate data type and length.
+                    defArr = args.def[elem].split('.');
+                    
+                    if (defArr[0] === 'ARRAY') {
+                        lenArrElem = parseInt(defArr[1], 10);
+                        defArr.shift();
+                        defArr.shift();
                     } else {
-                        vlen = plcTypeLen[defArr[0]];
+                        lenArrElem = 1;
                     }
                     
-                    //Add the length of the PLC variables
-                    if (dataAlign4 === true && vlen > 1 && defArr[0] != 'STRING' && structByteLen > 0) {
-                        mod = structByteLen % vlen;
-                        if (mod > 0) {
-                            structByteLen += vlen - mod;
+                    for (i = 0; i < lenArrElem; i++) {
+                        //Set the length of the PLC variable.
+                        if (defArr[0] === 'STRING') {
+                            if (typeof defArr[1] === 'string') {
+                                strlen = parseInt(defArr[1], 10);
+                            }
+                            vlen = (isValidStringLen(strlen) ? strlen : plcTypeLen[defArr[0]]) + 1;
+                        } else {
+                            vlen = plcTypeLen[defArr[0]];
                         }
+                        
+                        //Add the length of the PLC variables
+                        if (dataAlign4 === true && vlen > 1 && defArr[0] !== 'STRING' && structByteLen > 0) {
+                            mod = structByteLen % vlen;
+                            if (mod > 0) {
+                                structByteLen += vlen - mod;
+                            }
+                        }
+                        structByteLen += vlen; 
                     }
-                    structByteLen += vlen; 
-                }
-                //Store the maximum length of the PLC variables
-                //for inserting padding bytes at the end of the structure.
-                if (dataAlign4 === true && vlen > vlenMax && defArr[0] != 'STRING') {
-                    vlenMax = vlen;
+                    //Store the maximum length of the PLC variables
+                    //for inserting padding bytes at the end of the structure.
+                    if (dataAlign4 === true && vlen > vlenMax && defArr[0] !== 'STRING') {
+                        vlenMax = vlen;
+                    }
                 }
             }
+            
             //Calculate the padding bytes at the end of the structure
-            if (dataAlign4 === true && vlenMax > 1 && defArr[0] != 'STRING') {
+            if (dataAlign4 === true && vlenMax > 1 && defArr[0] !== 'STRING') {
                 if (vlenMax > 4) {
                     vlenMax = 4;
                 }
@@ -2259,65 +2274,70 @@ TAME.WebServiceClient = function (service) {
             //Although jvar isn't necessary for write requests,
             //it's good for easier debugging.
             for (i = 0; i < arrayLength; i++) {
+                
                 for (elem in args.def) {
-                    defArr = args.def[elem].split('.');
                     
-                    if (defArr[0] === 'ARRAY') {
-                        lenArrElem = parseInt(defArr[1], 10);
-                        lastDefArr = defArr.length - 1;
+                    if (args.def.hasOwnProperty(elem)) {
+                    
+                        defArr = args.def[elem].split('.');
                         
-                        for (j = 0; j < lenArrElem; j++) {
-                            if (defArr[lastDefArr] === 'SP') {
-                                reqDescr.items[cnt] = {
-                                    jvar: i + '.' + elem + j
-                                };
-                                if (lastDefArr === 4) {
-                                    reqDescr.items[cnt].type = defArr[2] + '.' + defArr[3];
-                                } else {
-                                    reqDescr.items[cnt].type = defArr[2];
-                                }
-                            } else {
-                                reqDescr.items[cnt] = {
-                                    jvar: i + '.' + elem + '.' + j
-                                };
-                                if (lastDefArr === 3) {
-                                    reqDescr.items[cnt].type = defArr[2] + '.' + defArr[3];
-                                } else {
-                                    reqDescr.items[cnt].type = defArr[2];
-                                }
-                            }
+                        if (defArr[0] === 'ARRAY') {
+                            lenArrElem = parseInt(defArr[1], 10);
+                            lastDefArr = defArr.length - 1;
                             
+                            for (j = 0; j < lenArrElem; j++) {
+                                if (defArr[lastDefArr] === 'SP') {
+                                    reqDescr.items[cnt] = {
+                                        jvar: i + '.' + elem + j
+                                    };
+                                    if (lastDefArr === 4) {
+                                        reqDescr.items[cnt].type = defArr[2] + '.' + defArr[3];
+                                    } else {
+                                        reqDescr.items[cnt].type = defArr[2];
+                                    }
+                                } else {
+                                    reqDescr.items[cnt] = {
+                                        jvar: i + '.' + elem + '.' + j
+                                    };
+                                    if (lastDefArr === 3) {
+                                        reqDescr.items[cnt].type = defArr[2] + '.' + defArr[3];
+                                    } else {
+                                        reqDescr.items[cnt].type = defArr[2];
+                                    }
+                                }
+                                
+                                if (method === 'Write') {
+                                    if (wrtOneOnly) {
+                                        if (defArr[lastDefArr] === 'SP') {
+                                            reqDescr.items[cnt].val = dataObj[args.item][elem + j];
+                                        } else {
+                                            reqDescr.items[cnt].val = dataObj[args.item][elem][j];
+                                        }
+                                    } else {
+                                        if (defArr[lastDefArr] === 'SP') {
+                                            reqDescr.items[cnt].val = dataObj[i][elem + j];
+                                        } else {
+                                            reqDescr.items[cnt].val = dataObj[i][elem][j];
+                                        }
+                                    }
+                                }
+                                cnt++;
+                            }
+                        } else {
+                            reqDescr.items[cnt] = {
+                                jvar: i + '.' + elem,
+                                type: args.def[elem]
+                            };
                             if (method === 'Write') {
                                 if (wrtOneOnly) {
-                                    if (defArr[lastDefArr] === 'SP') {
-                                        reqDescr.items[cnt].val = dataObj[args.item][elem + j];
-                                    } else {
-                                        reqDescr.items[cnt].val = dataObj[args.item][elem][j];
-                                    }
+                                    reqDescr.items[cnt].val = dataObj[args.item][elem];
                                 } else {
-                                    if (defArr[lastDefArr] === 'SP') {
-                                        reqDescr.items[cnt].val = dataObj[i][elem + j];
-                                    } else {
-                                        reqDescr.items[cnt].val = dataObj[i][elem][j];
-                                    }
+                                    reqDescr.items[cnt].val = dataObj[i][elem];
                                 }
                             }
                             cnt++;
-                        }
-                    } else {
-                        reqDescr.items[cnt] = {
-                            jvar: i + '.' + elem,
-                            type: args.def[elem]
-                        };
-                        if (method === 'Write') {
-                            if (wrtOneOnly) {
-                                reqDescr.items[cnt].val = dataObj[args.item][elem];
-                            } else {
-                                reqDescr.items[cnt].val = dataObj[i][elem];
-                            }
-                        }
-                        cnt++;
-                    }  
+                        }  
+                    }
                 }
                 //Set an item as a mark at the end of the structure
                 //for inserting padding bytes in "writeReq" and "readReq" later.
@@ -2464,7 +2484,7 @@ TAME.WebServiceClient = function (service) {
         //as a string.
         if (typeof args.def === 'string') {
             args.def = parseVarName(args.def);
-        } else if (typeof args.def != 'object') {
+        } else if (typeof args.def !== 'object') {
             log('TAME library error: No structure defininition found!');
         }
         
@@ -2486,49 +2506,53 @@ TAME.WebServiceClient = function (service) {
         //Although jvar isn't necessary for write requests,
         //it's good for easier debugging.
         for (elem in args.def) {
-            defArr = args.def[elem].split('.');
             
-            if (defArr[0] === 'ARRAY') {
-                lenArrElem = parseInt(defArr[1], 10);
-                lastDefArr = defArr.length - 1;
-                for (j = 0; j < lenArrElem; j++) {
-                    if (defArr[lastDefArr] === 'SP') {
-                        reqDescr.items[cnt] = {
-                            jvar: elem + j
-                        };
-                        if (lastDefArr === 4) {
-                            reqDescr.items[cnt].type = defArr[2] + '.' + defArr[3];
-                        } else {
-                            reqDescr.items[cnt].type = defArr[2];
-                        }
-                    } else {
-                        reqDescr.items[cnt] = {
-                            jvar: elem + '.' + j
-                        };
-                        if (lastDefArr === 3) {
-                            reqDescr.items[cnt].type = defArr[2] + '.' + defArr[3];
-                        } else {
-                            reqDescr.items[cnt].type = defArr[2];
-                        }
-                    }
-                    if (method === 'Write') {
+            if (args.def.hasOwnProperty(elem)) {
+            
+                defArr = args.def[elem].split('.');
+                
+                if (defArr[0] === 'ARRAY') {
+                    lenArrElem = parseInt(defArr[1], 10);
+                    lastDefArr = defArr.length - 1;
+                    for (j = 0; j < lenArrElem; j++) {
                         if (defArr[lastDefArr] === 'SP') {
-                            reqDescr.items[cnt].val = dataObj[elem + j];
+                            reqDescr.items[cnt] = {
+                                jvar: elem + j
+                            };
+                            if (lastDefArr === 4) {
+                                reqDescr.items[cnt].type = defArr[2] + '.' + defArr[3];
+                            } else {
+                                reqDescr.items[cnt].type = defArr[2];
+                            }
                         } else {
-                            reqDescr.items[cnt].val = dataObj[elem][j];
+                            reqDescr.items[cnt] = {
+                                jvar: elem + '.' + j
+                            };
+                            if (lastDefArr === 3) {
+                                reqDescr.items[cnt].type = defArr[2] + '.' + defArr[3];
+                            } else {
+                                reqDescr.items[cnt].type = defArr[2];
+                            }
                         }
+                        if (method === 'Write') {
+                            if (defArr[lastDefArr] === 'SP') {
+                                reqDescr.items[cnt].val = dataObj[elem + j];
+                            } else {
+                                reqDescr.items[cnt].val = dataObj[elem][j];
+                            }
+                        }
+                        cnt++;
+                    }
+                } else {
+                    reqDescr.items[cnt] = {
+                        jvar: elem,
+                        type: args.def[elem]
+                    };
+                    if (method === 'Write') {
+                        reqDescr.items[cnt].val = dataObj[elem];
                     }
                     cnt++;
                 }
-            } else {
-                reqDescr.items[cnt] = {
-                    jvar: elem,
-                    type: args.def[elem]
-                };
-                if (method === 'Write') {
-                    reqDescr.items[cnt].val = dataObj[elem];
-                }
-                cnt++;
             }
         }
         
@@ -2587,7 +2611,7 @@ TAME.WebServiceClient = function (service) {
             //4-byte padding within structures.
             //reqDescr.dataAlign4 is only set in "writeStruct/readStruct" and
             //"writeArrayOfStruct/readArrayOfStruct"
-            if (reqDescr.dataAlign4 === true && len > 1 && type != 'STRING' && pData.length > 0) {
+            if (reqDescr.dataAlign4 === true && len > 1 && type !== 'STRING' && pData.length > 0) {
                 mod = pData.length % len;
                 if (mod > 0) {
                     pcount = len - mod;
@@ -2651,7 +2675,7 @@ TAME.WebServiceClient = function (service) {
         }
 
         //Calculate the data length if no argument is given.
-        if (typeof reqDescr.readLength != 'number') {
+        if (typeof reqDescr.readLength !== 'number') {
             
             reqDescr.readLength = 0;
 
@@ -2676,7 +2700,7 @@ TAME.WebServiceClient = function (service) {
                 
                 if (reqDescr.seq === true) {
                     //Add the length of the PLC variables if continuously addressing is used.
-                    if (reqDescr.dataAlign4 === true && vlen > 1 && type != 'STRING' && reqDescr.readLength > 0) {
+                    if (reqDescr.dataAlign4 === true && vlen > 1 && type !== 'STRING' && reqDescr.readLength > 0) {
                         mod = reqDescr.readLength % vlen;
                         if (mod > 0) {
                             reqDescr.readLength += vlen - mod;
@@ -2821,15 +2845,78 @@ TAME.WebServiceClient = function (service) {
                 symTable = JSON.parse(jstr);
             } catch (e) {
                 log('TAME library error: Could not create the Symbol Table from JSON:' + e);
-                    return;
+                return;
             }
             symTableOk = true;
             log('TAME library info: Symbol Table successfully created from JSON data.');
-                return;
         }
     };
     
     
+    /**
+     * Process the webservice's server response.
+     * 
+     * @param {Object} adsReq   The object containing the arguments of the ADS request.
+     */
+    this.parseResponse = function(adsReq){
+    
+        var response = adsReq.xmlHttpReq.responseXML.documentElement,
+        errorCode, errorText;
+        
+        //Acknowledge the receive of a request with index 'id'.
+        if (typeof adsReq.reqDescr.id === 'number') {
+            currReq[adsReq.reqDescr.id] = 0;
+        }
+        
+        //Look for errors in the response string.
+        try {
+            errorText = response.getElementsByTagName('faultstring')[0].firstChild.data;
+            try {
+                errorCode = response.getElementsByTagName('errorcode')[0].firstChild.data;
+            } catch (e) {
+                errorCode = '-';
+            }
+            log('TAME library error: Message from server:  ' + errorText + ' (' + errorCode + ')');
+            
+            return;
+        } catch (ex) {
+            errorCode = 0;
+        }
+        
+        //Normalize data (esp. for Firefox, who splits data in 4k chunks).
+        if (typeof response.normalize === 'function') {
+            response.normalize();
+        }
+        
+        //Decode data if it's a read request.
+        if (adsReq.method === 'Read' || adsReq.method === 'ReadWrite') {
+            
+            switch (adsReq.indexGroup) {
+                case indexGroups.UploadInfo:
+                    parseUploadInfo(adsReq);
+                    break;
+                case indexGroups.Upload:
+                    parseUpload(adsReq);
+                    break;
+                case indexGroups.SumRd:
+                    parseSumReadReq(adsReq);
+                    break;
+                default:
+                    parseReadReq(adsReq); 
+            }
+        }
+        
+        //Call the On-Complete-Script.
+        if (typeof adsReq.reqDescr.oc === 'function') {
+            if (typeof adsReq.reqDescr.ocd === 'number') {
+                window.setTimeout(adsReq.reqDescr.oc, adsReq.reqDescr.ocd);
+            }
+            else {
+                adsReq.reqDescr.oc();
+            }
+        }
+    };
+
 
     /**
      * The shortcuts for reading and writing data.
@@ -2916,76 +3003,11 @@ TAME.WebServiceClient = function (service) {
     this.readArrayOfDate = function(args) { createArrayDescriptor('Read', 'DATE', args); };
     this.readArrayOfDt = function(args) { createArrayDescriptor('Read', 'DT', args); };
     this.readArrayOfStruct = function(args) { createArrayDescriptor('Read', 'STRUCT', args); };
-       
     
-    /**
-     * Process the webservice's server response.
-     * 
-     * @param {Object} adsReq   The object containing the arguments of the ADS request.
-     */
-    this.parseResponse = function(adsReq){
-    
-        var response = adsReq.xmlHttpReq.responseXML.documentElement,
-        errorCode, errorText;
         
-        //Acknowledge the receive of a request with index 'id'.
-        if (typeof adsReq.reqDescr.id === 'number') {
-            currReq[adsReq.reqDescr.id] = 0;
-        }
-        
-        //Look for errors in the response string.
-        try {
-            errorText = response.getElementsByTagName('faultstring')[0].firstChild.data;
-            try {
-                errorCode = response.getElementsByTagName('errorcode')[0].firstChild.data;
-            } catch (e) {
-                errorCode = '-';
-            }
-            log('TAME library error: Message from server:  ' + errorText + ' (' + errorCode + ')');
-            
-            return;
-        } catch (e) {
-            errorCode = 0;
-        }
-        
-        //Normalize data (esp. for Firefox, who splits data in 4k chunks).
-        if (typeof response.normalize === 'function') {
-            response.normalize();
-        }
-        
-        //Decode data if it's a read request.
-        if (adsReq.method === 'Read' || adsReq.method === 'ReadWrite') {
-            
-            switch (adsReq.indexGroup) {
-                case indexGroups.UploadInfo:
-                    parseUploadInfo(adsReq);
-                    break;
-                case indexGroups.Upload:
-                    parseUpload(adsReq);
-                    break;
-                case indexGroups.SumRd:
-                    parseSumReadReq(adsReq);
-                    break;
-                default:
-                    parseReadReq(adsReq); 
-            }
-        }
-        
-        //Call the On-Complete-Script.
-        if (typeof adsReq.reqDescr.oc === 'function') {
-            if (typeof adsReq.reqDescr.ocd === 'number') {
-                window.setTimeout(adsReq.reqDescr.oc, adsReq.reqDescr.ocd);
-            }
-            else {
-                adsReq.reqDescr.oc();
-            }
-        }
-    };
-    
-    
     
     //======================================================================================
-    //                        Methods for Creating the Symbol Table
+    //                   Methods for Creating the Symbol Table from Upload
     //======================================================================================   
  
     /**
@@ -3105,8 +3127,10 @@ TAME.WebServiceClient = function (service) {
                     //Check if variable is a user defined data type,
                     symTable[nameAndType[0]].arrayDataType = 'USER';
                     for (elem in plcTypeLen) {
-                        if (type[0] === elem) {
-                            symTable[nameAndType[0]].arrayDataType = type[0];
+                        if (plcTypeLen.hasOwnProperty(elem)) {
+                            if (type[0] === elem) {
+                                symTable[nameAndType[0]].arrayDataType = type[0];
+                            }
                         }
                     }
 
@@ -3126,8 +3150,10 @@ TAME.WebServiceClient = function (service) {
                     symTable[nameAndType[0]].type = 'USER';
                     
                     for (elem in plcTypeLen) {
-                        if (type[0] === elem) {
-                            symTable[nameAndType[0]].type = type[0];
+                        if (plcTypeLen.hasOwnProperty(elem)) {
+                            if (type[0] === elem) {
+                                symTable[nameAndType[0]].type = type[0];
+                            }
                         }
                     }
                 }
@@ -3145,76 +3171,20 @@ TAME.WebServiceClient = function (service) {
         }
     }
     
-
-    
-    /**
-     * Get the symbol-file (*.tpy) from the server and create
-     * an object (symTable) with the symbol names as the properties.
-     */
-    /*
-    function getSymFile() {
-  
-        var xmlHttpReq = createXMLHttpReq(),
-        symbolXmlArray = [],
-        symFile, name, allSymbols, i;
-        
-        //Synchronous HTTPRequest
-        xmlHttpReq.open('GET', service.symFileUrl, false);
-        xmlHttpReq.setRequestHeader('Content-Type', 'text/xml');
-        xmlHttpReq.send(null);
-
-        if (typeof DOMParser === 'function') {
-            try {
-                symFile = (new DOMParser()).parseFromString(xmlHttpReq.responseText, "text/xml");
-                allSymbols = symFile.getElementsByTagName('Symbols')[0];
-            
-                //Create an Array of the Elements with "Symbol" as tag name.
-                symbolXmlArray = allSymbols.getElementsByTagName('Symbol');
-                
-                //Get the name of the symbol and create an object property with it.
-                //symTable is declared outside in the constructor function.
-                for (i = 0; i < symbolXmlArray.length; i++) {
-                    name = symbolXmlArray[i].getElementsByTagName('Name')[0].childNodes[0].nodeValue.toUpperCase();
-                    symTable[name] = {
-                        type: symbolXmlArray[i].getElementsByTagName('Type')[0].childNodes[0].nodeValue.toUpperCase(),
-                        indexGroup: parseInt(symbolXmlArray[i].getElementsByTagName('IGroup')[0].childNodes[0].nodeValue, 10),
-                        indexOffset: parseInt(symbolXmlArray[i].getElementsByTagName('IOffset')[0].childNodes[0].nodeValue, 10),
-                        bitSize: parseInt(symbolXmlArray[i].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue, 10)
-                    };
-                    symTable[name].size = (symTable[name].bitSize >= 8) ? symTable[name].bitSize/8 : symTable[name].bitSize;
-                }
-                symTableOk = true;       
-                try {
-                    console.log('TAME library info: End of reading the SymFile.');
-                    console.log('TAME library info: Symbol table ready.');
-                } catch (e) {}       
-            } catch(e) {
-                try {
-                console.log('TAME library error: An error occured while parsing the symbol file:');
-                console.log(e);
-                } catch(e) {}
-            }
-        } else {
-            try {
-                console.log('TAME library error: Can\'t parse the symbol file cause your brower does not provide a DOMParser function.');
-            } catch(e) {}
-        }
-    };
-    */
-    
     /**
      * !!!!!INITIALIZATION OF THE SYMBOL TABLE!!!!!
+     * !!!!!This function is called with instancing of the client.!!!!!
      * 
      * Get the names of the PLC variables using the upload info.
      */
-    if (service.dontReadUpload === true) {
+    if (service.dontFetchSymbols === true) {
         log('TAME library info: Reading of the UploadInfo deactivated. Symbol Table could not be created.');
     } else {
         log('TAME library info: Start of reading the UploadInfo.');
         //Get the UploadInfo.
         getUploadInfo();
     }
- 
+    
 };
 
 
@@ -3228,4 +3198,7 @@ TAME.WebServiceClient = function (service) {
 TAME.WebServiceClient.createClient = function(service) {
     return new TAME.WebServiceClient(service);
 };
+
+
+
 
