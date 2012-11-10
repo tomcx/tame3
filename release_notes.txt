@@ -1,8 +1,25 @@
+                       TAME V3.1 Release Notes 
+                       -----------------------
+                       
+- New feature: Methods for importing/exporting the symbol table from/to a JSON
+  string added. Especially intented for Tasker scripts (Android).
+
+- Changed API: The name of the parameter for preventing the use of the
+  Upload for building the symbol table has changed.
+
+    old             new
+    -----------     --------------
+    dontReadUpload  dontFetchSymbols
+    
+- A lot of code improvements and Strict Mode added.
+
+ 
+
                        TAME V3.1b2 Release Notes 
                        -------------------------
                        
 - New feature: Options for using synchronous XMLHttpRequests added. Especially
-  intented for Tasker scripts (Android).           
+  intented for Tasker scripts (Android).
 
 
 
