@@ -31,6 +31,7 @@ window.onload = function() {
      */
 
     //Functions for reading data not included in the cyclic polling
+    //just for showing how to use them with a on-complete-function.
     var pollWert1 = function() {
         Plc.readBool({name: '.In_Bool1', jvar: 'field1.data'});
     };
@@ -99,23 +100,7 @@ window.onload = function() {
     counter1 = document.getElementById('ramp1').firstChild;
     counter2 = document.getElementById('ramp2').firstChild;
     
-    
-    var structdef = {
-        var_1: 'BYTE',
-        var_2: 'REAL.2',
-        var_3: 'SINT',
-        var_4: 'TIME.#ms',
-        var_5: 'ARRAY.5.STRING.6', //Array of 5 strings with 6 chars
-        var_6: 'INT'
-    };
-    
-    var structdef2 = {
-        var_1: 'STRING.5',
-        var_2: 'REAL.2',
-        var_3: 'SINT',
-        var_4: 'INT',
-        var_5: 'ARRAY.5.BYTE'
-    };
+
      
     //This function reads the data of the variables 
     //an calls itself again. Of course you can use "setInterval" instead.
