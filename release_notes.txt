@@ -11,7 +11,8 @@
     -----------     --------------
     dontReadUpload  dontFetchSymbols
     
-- A lot of code improvements and Strict Mode added.
+- Some code improvements and Strict Mode added.
+
 
  
 
