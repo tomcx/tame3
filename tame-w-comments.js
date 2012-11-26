@@ -1780,7 +1780,7 @@ TAME.WebServiceClient = function (service) {
                 }
             }
         } catch (e) {
-            log('TAME library error: Parsing Failed:' + e);
+            log('TAME library error: Parsing of Read Request failed:' + e);
             log(item);
             return;
         }
@@ -1990,6 +1990,7 @@ TAME.WebServiceClient = function (service) {
                         break;
                     default:
                         //Convert the data
+                        dataObj = window;
                         data = subStringToData(dataSubString, type, format);
                         //Parse the name of the JavaScript variable and write the data to it
                         parseVarName(item.jvar, data, dataObj, item.prefix, item.suffix);                  
@@ -1999,7 +2000,7 @@ TAME.WebServiceClient = function (service) {
 
             }
         } catch (e) {
-            log('TAME library error: Parsing Failed:' + e);
+            log('TAME library error: Parsing of SumReadRequest failed:' + e);
             log(item);
             return;
         }
