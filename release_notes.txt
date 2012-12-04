@@ -4,12 +4,15 @@
 - New feature: Methods for importing/exporting the symbol table from/to a JSON
   string added. Especially intented for Tasker scripts (Android).
 
-- Changed API: The name of the parameter for preventing the use of the
-  Upload for building the symbol table has changed.
+- Changed API: For a better understanding I changed the name of the parameter
+  for preventing the use of the Upload for building the symbol table.
 
     old             new
     -----------     --------------
     dontReadUpload  dontFetchSymbols
+    
+- Bugfix: Variables of a SumReadRequest defined after a structure or an array
+  were not updated, fixed.
     
 - Some code improvements and Strict Mode added.
 
