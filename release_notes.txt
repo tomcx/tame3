@@ -71,3 +71,154 @@
   located. TwinCAT V2.10 Build >= 1324 is needed to use this feature!
   
 
+
+
+
+                       TAME V2.2.2 Release Notes 
+                       -------------------------
+                       
+
+- Documentation updated: For the reading of structures the parameter "SP" was not described.
+
+- Minor changes.
+
+
+
+
+                       TAME V2.2.1 Release Notes 
+                       -------------------------
+                       
+- Minor fixes.
+                       
+
+
+
+                       TAME V2.2 Release Notes 
+                       -----------------------
+                       
+                       
+- New feature: Support for data type LREAL added (thanks to Martin Geiger for the preliminary work).
+
+- New feature: For the method "readReq" and those for reading single variables
+  there are now 2 new options, "prefix" and "suffix". Documentation updated.
+
+- Bugfix: Issue with reading REAL values of 0 fixed. 
+
+- Bugfix: Incorrect alignment (ARM-Processors) for arrays of structures fixed.
+
+- Bugfix: Problems with the basic example solved. I've changed addresses both in the PLC program
+  and in the JavaScript file.
+
+
+ 
+
+                       TAME V2.1 Release Notes 
+                       -----------------------
+
+
+- New feature: All numeric data types and the data type TIME with bounds
+  checking now. Added a new Webservice Client property "useCheckBounds",
+  which is set to "true" by default.
+
+- Bugfix: Some issues with writing of REAL variables fixed.
+
+- Bugfix: Firefox splits XML response strings in 4k chunks, workaround
+  added.
+
+- Minor improvements.
+
+  
+
+
+                       TAME V2.0.1 Release Notes 
+                       -------------------------
+
+        
+- Paramter "strlen" in method "readString" and "writeString" didn't work, fixed.
+
+
+                        
+                        
+                       TAME V2.0 Release Notes
+                       -----------------------
+
+
+- Improved performance due to a complete redesign and a lot of micro-
+  optimizations.
+
+- More and improved debug messages.
+
+- New examples.
+
+- New feature: For the methods "writeArray" and "writeArrayOfStruct": 
+  With the parameter "item" set to the index number of an array item,
+  only this item of the array is written to the PLC. So there's no need to 
+  write the whole array or calculating the address of the item by yourself,
+  if one want's to write one element only.
+
+- New feature: For reading/writing structures it's now possible to define 
+  arrays as a type in structures, i.e. ARRAY.20.STRING.11 for an array of 
+  20 string variables, each with 11 characters length.
+
+- New feature: Instead of defining the field "fld" and the address as a number
+  in the request descriptor, the address can now be written like the address
+  in the PLC: 
+  
+    addr: "%MB23"
+    addr: "%MW100"
+    addr: "%MX0.1"
+    
+  Although the old notation is still supported, it's deprecated and should
+  not be used anymore.
+
+- New feature: The WebServiceClient has an additonal property "language" for 
+  setting the language of names of days and months, used for the formatted 
+  output of dates. 
+  Defaults to german (ge).
+
+- Changed API: The name of the parameter for reading variables defined in a 
+  direct sequence has changed (method "readReq").
+
+    old         new
+    ----------- ------------
+    cont        seq
+
+- Changed API: The item list of a request descriptor has to be an array now,
+  the alternative use of an object literal has been removed. The name of
+  the property has also changed:
+  
+    old         new
+    ----------- ------------
+    varlist     items
+    
+- Changed API: Renamed paramters for creating the Webservice Client:
+
+    - Changed call: TAME.WebServiceClient.createClient
+
+    - Changed parameter:
+    
+        old         new
+        ----------- -----------
+        url         serviceUrl
+        netId       amsNetId
+        port        amsPort
+        dataAlignm  dataAlign4
+
+- Changed API: For the methods "readString/writeString" and "readArrayOfString/
+  writeArrayOfString" the parameter for the length of the string has changed.
+  
+    old         new
+    ----------- ------------
+    len         strlen
+
+- Bugfix: Acknowledgement counter was broken, fixed.
+
+- Bugfix: Upper limts for SINT, INT and DINT were wrong, fixed.
+
+- Various minor fixes and improvements.
+
+
+
+
+
+
