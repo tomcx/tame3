@@ -1,5 +1,5 @@
 /*!
- * TAME [TwinCAT ADS Made Easy] V3.1
+ * TAME [TwinCAT ADS Made Easy] V3.2b
  * 
  * Copyright (c) 2009-2012 Thomas Schmidt; t.schmidt.p1 at freenet.de
  * 
@@ -923,6 +923,49 @@ TAME.WebServiceClient = function (service) {
     }
     
     /**
+     * Convert a TOD string to a value of milliseconds..
+     * 
+     * @param {Number} time
+     * @param {String} format
+     */
+    function stringToTime(timestring, format) {
+        var arrFormat = format.split('#'),
+            arrlen = arrFormat.length,
+            regex = /(:|\.|-|_)/,
+            time = 0,
+            tmp, i, arrValues, splitter;
+            
+            
+        for (i = 1; i < arrlen; i++) {
+            if (regex.test(arrFormat[i]) === true) {
+                splitter = arrFormat[i];
+            }
+        }
+        
+        arrValues = timestring.split(splitter);
+            
+        for (i = 1; i < arrlen; i++) {
+            
+            switch (arrFormat[i]) {
+                case 'h':
+                case 'hh':
+                    tmp = arrValues[i] * 3600000;
+                    break;
+                case 'm':
+                case 'mm':
+                    tmp = arrValues[i] * 60000;
+                    break;
+                case 's':
+                case 'ss':
+                    tmp = arrValues[i] * 1000;
+                    break;
+            }
+            time = time + tmp;
+        }
+        return time;
+    }
+    
+    /**
      * Base64 encoder
      * 
      * @param {Array} data
@@ -1079,8 +1122,16 @@ TAME.WebServiceClient = function (service) {
                     //Convert the date object in seconds since 1.1.1970 and
                     //set the time zone to UTC.
                     val = item.val.getTime() - item.val.getTimezoneOffset() * 60000;
+                } else if (typeof item.val === 'string') {
+                    //If the time value is a string
+                    if (format === '' || format === undefined) {
+                        format = '#hh#:#mm';
+                        log('TAME library error: No format given for TOD string! Using default #hh#:#mm.');
+                        log(item);
+                    }
+                    stringToTime(item.val, format);
                 } else {
-                    log('TAME library error: Date is not an object!');
+                    log('TAME library error: Time of day is wether a date object nor a string!');
                     log(item);
                 }
                 bytes = numToByteArr(val, len);
@@ -1362,7 +1413,7 @@ TAME.WebServiceClient = function (service) {
         }
         return tstring;
     }
-
+    
     /**
      * Convert data string to USINT/BYTE.
      * 
