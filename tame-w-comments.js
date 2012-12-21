@@ -1,5 +1,5 @@
 /*!
- * TAME [TwinCAT ADS Made Easy] V3.2b
+ * TAME [TwinCAT ADS Made Easy] V3.2 beta
  * 
  * Copyright (c) 2009-2012 Thomas Schmidt; t.schmidt.p1 at freenet.de
  * 
@@ -923,7 +923,7 @@ TAME.WebServiceClient = function (service) {
     }
     
     /**
-     * Convert a TOD string to a value of milliseconds..
+     * Convert a TOD string to a value of milliseconds.
      * 
      * @param {Number} time
      * @param {String} format
@@ -931,36 +931,56 @@ TAME.WebServiceClient = function (service) {
     function stringToTime(timestring, format) {
         var arrFormat = format.split('#'),
             arrlen = arrFormat.length,
-            regex = /(:|\.|-|_)/,
+            regex = /:|\.|-|_/,
             time = 0,
-            tmp, i, arrValues, splitter;
+            cnt = 0,
+            tmp, i, arrValues, splitterOk;
             
-            
+        //Check if a valid splitter is given
         for (i = 1; i < arrlen; i++) {
             if (regex.test(arrFormat[i]) === true) {
-                splitter = arrFormat[i];
+                splitterOk = true;
             }
         }
         
-        arrValues = timestring.split(splitter);
-            
+        if (splitterOk !== true) {
+            log('TAME library error: No splitter for TOD string found!');
+            log('String: ' + timestring);
+            log('Format: ' + format);
+            //Although we could try to split the timestring in case of a 
+            //wrong formatting string, we don't do it.
+            return 0;
+        }
+        
+        arrValues = timestring.split(regex);
+        
         for (i = 1; i < arrlen; i++) {
             
             switch (arrFormat[i]) {
                 case 'h':
                 case 'hh':
-                    tmp = arrValues[i] * 3600000;
+                    tmp = parseInt(arrValues[cnt],10) * 3600000;
+                    cnt++;
                     break;
                 case 'm':
                 case 'mm':
-                    tmp = arrValues[i] * 60000;
+                    tmp = parseInt(arrValues[cnt],10) * 60000;
+                    cnt++;
                     break;
                 case 's':
                 case 'ss':
-                    tmp = arrValues[i] * 1000;
+                    tmp = parseInt(arrValues[cnt],10) * 1000;
+                    cnt++;
                     break;
+                case 'ms':
+                case 'msmsms':
+                    tmp = parseInt(arrValues[cnt],10);
+                    cnt++;
+                    break;
+                default:
+                    tmp = 0;
             }
-            time = time + tmp;
+            time += tmp;
         }
         return time;
     }
@@ -1129,7 +1149,7 @@ TAME.WebServiceClient = function (service) {
                         log('TAME library error: No format given for TOD string! Using default #hh#:#mm.');
                         log(item);
                     }
-                    stringToTime(item.val, format);
+                    val = stringToTime(item.val, format);
                 } else {
                     log('TAME library error: Time of day is wether a date object nor a string!');
                     log(item);
