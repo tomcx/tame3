@@ -944,7 +944,7 @@ TAME.WebServiceClient = function (service) {
         }
         
         if (splitterOk !== true) {
-            log('TAME library error: No splitter for TOD string found!');
+            log('TAME library error: No separator ( : . - _ ) for TOD string found!');
             log('String: ' + timestring);
             log('Format: ' + format);
             //Although we could try to split the timestring in case of a 
