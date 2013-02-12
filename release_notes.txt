@@ -1,3 +1,11 @@
+                       TAME V3.2b Release Notes 
+                       ------------------------
+                       
+- TOD values can be a string now, i.e. "21:32".
+
+
+
+
                        TAME V3.1 Release Notes 
                        -----------------------
                        

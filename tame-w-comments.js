@@ -111,6 +111,24 @@ TAME.WebServiceClient = function (service) {
             EndStruct: 0   //should be 0!
         },
         
+        adsStates = [
+            "INVALID",
+            "IDLE",
+            "RESET",
+            "INIT",
+            "START",
+            "RUN",
+            "STOP",
+            "SAVECFG",
+            "POWERGOOD",
+            "ERROR",
+            "SHUTDOWN",
+            "SUSPEND",
+            "RESUME",
+            "CONFIG",  
+            "RECONFIG" 
+        ],
+        
         //Set language for names of days and months, default is german.
         lang = (typeof service.language === 'string') ? service.language : 'ge',
 
@@ -484,7 +502,9 @@ TAME.WebServiceClient = function (service) {
      */
     function createRequest(adsReq) {
         
-        if (adsReq.reqDescr.debug) {
+        if (adsReq.reqDescr === undefined) {
+            adsReq.reqDescr = {};
+        } else if (adsReq.reqDescr.debug) {
             log(adsReq);
         }
         
@@ -533,12 +553,18 @@ TAME.WebServiceClient = function (service) {
             soapReq += netId;
             soapReq += '</netId><nPort xsi:type=\'xsd:int\'>';
             soapReq += port;
-            soapReq += '</nPort><indexGroup xsi:type=\'xsd:unsignedInt\'>';
-            soapReq += this.indexGroup;
-            soapReq += '</indexGroup><indexOffset xsi:type=\'xsd:unsignedInt\'>';
-            soapReq += this.indexOffset;
-            soapReq += '</indexOffset>';
-    
+            soapReq += '</nPort>';
+            
+            if (this.indexGroup !== undefined) {
+                soapReq += '<indexGroup xsi:type=\'xsd:unsignedInt\'>';
+                soapReq += this.indexGroup;
+                soapReq += '</indexGroup>';
+            }
+            if (this.indexOffset !== undefined) {
+                soapReq += '<indexOffset xsi:type=\'xsd:unsignedInt\'>';
+                soapReq += this.indexOffset;
+                soapReq += '</indexOffset>';
+            }
             if ((this.method === 'Read' || this.method === 'ReadWrite') && this.reqDescr.readLength > 0) {
                 soapReq += '<cbRdLen xsi:type=\'xsd:int\'>';
                 soapReq += this.reqDescr.readLength;
@@ -1146,7 +1172,7 @@ TAME.WebServiceClient = function (service) {
                     //If the time value is a string
                     if (format === '' || format === undefined) {
                         format = '#hh#:#mm';
-                        log('TAME library error: No format given for TOD string! Using default #hh#:#mm.');
+                        log('TAME library warning: No format given for TOD string! Using default #hh#:#mm.');
                         log(item);
                     }
                     val = stringToTime(item.val, format);
@@ -2078,6 +2104,25 @@ TAME.WebServiceClient = function (service) {
     }
     
     
+    /**
+     * Decode the response string of a ADS State Request and store the data.
+     * 
+     * @param {Object} adsReq   ADS Reqest Object
+     */
+    function parseAdsState(adsReq) {
+        var response = adsReq.xmlHttpReq.responseXML.documentElement;
+          
+        try {
+            instance.adsStateNr = parseInt(response.getElementsByTagName('pAdsState')[0].firstChild.data, 10);
+            instance.adsState = adsStates[instance.adsStateNr];
+            instance.deviceState = parseInt(response.getElementsByTagName('pDeviceState')[0].firstChild.data, 10);
+        } catch (e) {
+            log('TAME library error: Parsing of ADS Read State Request failed:' + e);
+            return;
+        }
+    }
+    
+    
     
     //======================================================================================
     //                     Functions for Creating Request Descriptors
@@ -2874,6 +2919,23 @@ TAME.WebServiceClient = function (service) {
         createRequest(adsReq).send();
     };
     
+    
+    /**
+     * This is the function for creating a sum read request.
+     * 
+     * @param {Object}  reqDescr    The Request Descriptor. Besides other information
+     *                              this object contains the allocation of PLC and
+     *                              JavaScript variables in an item list.
+     */
+    this.readAdsState = function(reqDescr) {
+        //Generate the ADS request object and call the send function.
+        var adsReq = {
+            method: 'ReadState',
+            reqDescr: reqDescr
+        };
+        createRequest(adsReq).send();
+    };
+
 
     /**
      *  Prints the symbol table to the console.
@@ -2958,10 +3020,14 @@ TAME.WebServiceClient = function (service) {
         //Normalize data (esp. for Firefox, who splits data in 4k chunks).
         if (typeof response.normalize === 'function') {
             response.normalize();
-        }
+        }      
         
         //Decode data if it's a read request.
-        if (adsReq.method === 'Read' || adsReq.method === 'ReadWrite') {
+        if (adsReq.method === 'ReadState') {
+            
+            parseAdsState(adsReq);
+            
+        } else if (adsReq.method === 'Read' || adsReq.method === 'ReadWrite') {
             
             switch (adsReq.indexGroup) {
                 case indexGroups.UploadInfo:
@@ -3242,6 +3308,12 @@ TAME.WebServiceClient = function (service) {
             return;
         }
     }
+    
+    
+    //----------------------------Test--------------------------------
+    instance.timer = window.setTimeout(function(){alert('abgelaufen')}, 3000);
+    instance.readAdsState({oc:function(){window.clearTimeout(instance.timer);}});
+    //----------------------------Test--------------------------------
     
     /**
      * !!!!!INITIALIZATION OF THE SYMBOL TABLE!!!!!
