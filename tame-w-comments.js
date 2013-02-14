@@ -232,7 +232,10 @@ TAME.WebServiceClient = function (service) {
     //Check limits of numeric variables before sending them to the PLC
     this.useCheckBounds = true;
     
-    
+    //ADS states
+    this.adsState = '';
+    //this.adsStateNr = undefined;
+    //this.deviceState = undefined;
     
         
     //======================================================================================
@@ -2113,8 +2116,8 @@ TAME.WebServiceClient = function (service) {
         var response = adsReq.xmlHttpReq.responseXML.documentElement;
           
         try {
-            instance.adsStateNr = parseInt(response.getElementsByTagName('pAdsState')[0].firstChild.data, 10);
-            instance.adsState = adsStates[instance.adsStateNr];
+            instance.adsState = parseInt(response.getElementsByTagName('pAdsState')[0].firstChild.data, 10);
+            instance.adsStateTxt = adsStates[instance.adsState];
             instance.deviceState = parseInt(response.getElementsByTagName('pDeviceState')[0].firstChild.data, 10);
         } catch (e) {
             log('TAME library error: Parsing of ADS Read State Request failed:' + e);
@@ -3151,7 +3154,8 @@ TAME.WebServiceClient = function (service) {
     /**
      *  Get the upload info. 
      */
-    function getUploadInfo() {    
+    
+    function getUploadInfo() {
         //Generate the ADS request object and call the send function.
         var adsReq = {
             method: 'Read',
@@ -3164,7 +3168,7 @@ TAME.WebServiceClient = function (service) {
         };
         createRequest(adsReq).send();
     }
-     
+    
    
     /**
      * Parse the upload information and call the request for 
@@ -3300,7 +3304,7 @@ TAME.WebServiceClient = function (service) {
             }
             symTableOk = true;
              
-            log('TAME library info: End of reading the UploadInfo.');
+            log('TAME library info: End of fetching the symbols.');
             log('TAME library info: Symbol table ready.');
               
         } catch (e) {
@@ -3311,8 +3315,9 @@ TAME.WebServiceClient = function (service) {
     
     
     //----------------------------Test--------------------------------
-    instance.timer = window.setTimeout(function(){alert('abgelaufen')}, 3000);
-    instance.readAdsState({oc:function(){window.clearTimeout(instance.timer);}});
+    log('TAME library info: Reading the PLC state ...');
+    instance.readAdsState({sync:true});
+    log('TAME library info: Current PLC state: ' + instance.adsStateTxt);
     //----------------------------Test--------------------------------
     
     /**
@@ -3324,9 +3329,15 @@ TAME.WebServiceClient = function (service) {
     if (service.dontFetchSymbols === true) {
         log('TAME library info: Reading of the UploadInfo deactivated. Symbol Table could not be created.');
     } else {
-        log('TAME library info: Start of reading the UploadInfo.');
+        log('TAME library info: Start fetching the symbols from PLC.');
         //Get the UploadInfo.
-        getUploadInfo();
+        try {
+            getUploadInfo();
+        } catch (e) {
+            log('TAME library error: Could\'nt fetch the symbol information from the PLC:' + e);
+            return;
+        }
+        
     }
     
 };
