@@ -3,6 +3,10 @@
                        
 - TOD values can be a string now, i.e. "21:32".
 
+- Function "readAdsState()" added for checking the current state of PLC.
+
+- Authentication added.
+
 
 
 

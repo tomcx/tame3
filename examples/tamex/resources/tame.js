@@ -135,7 +135,7 @@ TAME.WebServiceClient = function (service) {
         //Generate a Base64 alphabet for the encoder. Using an array or object to
         //store the alphabet the en-/decoder runs faster than with the commonly
         //used string. At least with the browsers of 2009. ;-)
-        b64Enc = function () {
+        b64Enc = (function () {
             var ret = {},
                 str = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/',
                 i;
@@ -143,10 +143,10 @@ TAME.WebServiceClient = function (service) {
                 ret[i] = str.charAt(i);
             }
             return ret;
-        }(),
+        }()),
         
         //Generate a Base64 alphabet for the decoder.
-        b64Dec = function () {
+        b64Dec = (function () {
             var ret = {},
                 str = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=',
                 i;
@@ -154,7 +154,7 @@ TAME.WebServiceClient = function (service) {
                 ret[str.charAt(i)] = i; 
             }
             return ret;
-        }(),
+        }()),
         
         //4-byte data alignment, for a x86 set it to false, for a ARM to true
         dataAlign4 = service.dataAlign4,
@@ -167,45 +167,46 @@ TAME.WebServiceClient = function (service) {
         symTableOk = false,
         
         //Variables of the UploadInfo 
-        symbolCount = 0, uploadLength = 0,
-        
-        url,
-        netId,
-        port,
-        syncXmlHttp;
+        symbolCount = 0, uploadLength = 0;
 
     
     //URL of the TcAdsWebService.dll
-    if (typeof service.serviceUrl === 'string') {
-        url = service.serviceUrl;
-    } else {
+    if (typeof service.serviceUrl !== 'string') {
         log('TAME library error: Service URL is not a string!');
         return;
     }
 
     //AMS NetID of the PLC
-    if (typeof service.amsNetId === 'string') {
-        netId = service.amsNetId;
-    } else {
+    if (typeof service.amsNetId !== 'string') {
         log('TAME library error: NetId is not a string!');
         return;
     }
     
     //AMS Port Number of the Runtime System
-    if (service.amsPort === undefined) {
-        port = '801';
-    } else if (typeof service.amsPort === 'string' && parseInt(service.amsPort, 10) >= 801 && parseInt(service.amsPort, 10) <= 804) {
-        port = service.amsPort;
-    } else {
-        log('TAME library error: AMS Port Number (' + parseInt(service.amsPort, 10) + ') is no string or out of range!');
+    if (typeof service.amsPort !== undefined) {
+        service.amsPort = '801';
+        log('TAME library warning: AMS port number is not set! Default port 801 will be used.');
+    } else if (typeof service.amsPort === 'number') {
+        log('TAME library warning: AMS port number is not a string! Trying to convert it.');
+        service.amsPort = service.amsPort.toString(10);
+    } 
+    if (parseInt(service.amsPort, 10) < 801 || parseInt(service.amsPort, 10) > 804) {
+        log('TAME library error: AMS Port Number (' + parseInt(service.amsPort, 10) + ') is out of range!');
         return;
     }
     
+    //Global synchronous XMLHTTPRequests
     if (service.syncXmlHttp === true) {
-        syncXmlHttp = true;
         log('TAME library info: The "syncXmlHttp" parameter was set. Synchronous XMLHttpRequests are used by default.');
+    }
+    
+    //Username/password
+    if (typeof service.serviceUser === 'string' && typeof service.servicePassword === 'string') {
+        log('TAME library info: Username and password set. Authenticated requests will be used.');
     } else {
-        syncXmlHttp = false;
+        log('TAME library info: Username and/or password not set. Anonymous requests are used.');
+        service.serviceUser = null;
+        service.servicePassword = null;
     }
     
     
@@ -536,7 +537,7 @@ TAME.WebServiceClient = function (service) {
                 async = false;
             } else if (this.reqDescr.sync === false) {
                 async = true;
-            } else if (syncXmlHttp === true) {
+            } else if (service.syncXmlHttp === true) {
                 async = false;
             } else {
                 async = true;
@@ -553,9 +554,9 @@ TAME.WebServiceClient = function (service) {
             soapReq += '<soap:Body><q1:';
             soapReq += this.method;
             soapReq += ' xmlns:q1=\'http://beckhoff.org/message/\'><netId xsi:type=\'xsd:string\'>';
-            soapReq += netId;
+            soapReq += service.amsNetId;
             soapReq += '</netId><nPort xsi:type=\'xsd:int\'>';
-            soapReq += port;
+            soapReq += service.amsPort;
             soapReq += '</nPort>';
             
             if (this.indexGroup !== undefined) {
@@ -590,7 +591,7 @@ TAME.WebServiceClient = function (service) {
             //Send the AJAX request.
             if (typeof this.xmlHttpReq === 'object') {
     
-                this.xmlHttpReq.open('POST', url, async);
+                this.xmlHttpReq.open('POST', service.serviceUrl, async, service.serviceUser, service.servicePassword);
     
                 this.xmlHttpReq.setRequestHeader('SOAPAction', 'http://beckhoff.org/action/TcAdsSync.' + this.method);
                 this.xmlHttpReq.setRequestHeader('Content-Type', 'text/xml; charset=utf-8');
@@ -3351,6 +3352,7 @@ TAME.WebServiceClient = function (service) {
  * 
  */
 TAME.WebServiceClient.createClient = function(service) {
+    "use strict";
     return new TAME.WebServiceClient(service);
 };
 
