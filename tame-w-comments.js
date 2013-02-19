@@ -44,6 +44,7 @@ var TAME = {
  */
 TAME.WebServiceClient = function (service) {
     
+    
     //======================================================================================
     //                                Things should come first
     //======================================================================================
@@ -63,6 +64,7 @@ TAME.WebServiceClient = function (service) {
             alert(message);
         }
     }
+    
     
     
     //======================================================================================
@@ -170,6 +172,11 @@ TAME.WebServiceClient = function (service) {
         symbolCount = 0, uploadLength = 0;
 
     
+    
+    //======================================================================================
+    //                                Check Client Parameter
+    //======================================================================================
+    
     //URL of the TcAdsWebService.dll
     if (typeof service.serviceUrl !== 'string') {
         log('TAME library error: Service URL is not a string!');
@@ -234,11 +241,12 @@ TAME.WebServiceClient = function (service) {
     this.useCheckBounds = true;
     
     //ADS states
-    this.adsState = '';
-    //this.adsStateNr = undefined;
-    //this.deviceState = undefined;
+    this.adsState = null;
+    this.adsStateTxt = '';
+    this.deviceState = null;
     
         
+    
     //======================================================================================
     //                                 Helper Functions
     //======================================================================================
@@ -471,7 +479,7 @@ TAME.WebServiceClient = function (service) {
     
     
     /**
-     * This function creates an XMLHttpRequest object.
+     * This function creates a XMLHttpRequest object.
      * 
      * @return {Object} xmlHttpReq  A XMLHttpRequest.
      */
@@ -1240,7 +1248,6 @@ TAME.WebServiceClient = function (service) {
     //======================================================================================
     //                                  Decoder Functions
     //======================================================================================
-
 
     /**
      * Convert a number to a hex string.
@@ -2130,8 +2137,7 @@ TAME.WebServiceClient = function (service) {
     
     //======================================================================================
     //                     Functions for Creating Request Descriptors
-    //======================================================================================
-    
+    //======================================================================================  
     
     /**
      * Create the Request Descriptor for a single variable. An item list
