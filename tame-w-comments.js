@@ -211,7 +211,6 @@ TAME.WebServiceClient = function (service) {
     if (typeof service.serviceUser === 'string' && typeof service.servicePassword === 'string') {
         log('TAME library info: Username and password set. Authenticated requests will be used.');
     } else {
-        log('TAME library info: Username and/or password not set. Anonymous requests are used.');
         service.serviceUser = null;
         service.servicePassword = null;
     }
@@ -3322,9 +3321,9 @@ TAME.WebServiceClient = function (service) {
     
     
     //----------------------------Test--------------------------------
-    log('TAME library info: Reading the PLC state ...');
-    instance.readAdsState({sync:true});
-    log('TAME library info: Current PLC state: ' + instance.adsStateTxt);
+    //log('TAME library info: Reading the PLC state ...');
+    //instance.readAdsState({sync:true});
+    //log('TAME library info: Current PLC state: ' + instance.adsStateTxt);
     //----------------------------Test--------------------------------
     
     /**

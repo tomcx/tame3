@@ -44,6 +44,7 @@ var TAME = {
  */
 TAME.WebServiceClient = function (service) {
     
+    
     //======================================================================================
     //                                Things should come first
     //======================================================================================
@@ -63,6 +64,7 @@ TAME.WebServiceClient = function (service) {
             alert(message);
         }
     }
+    
     
     
     //======================================================================================
@@ -170,6 +172,11 @@ TAME.WebServiceClient = function (service) {
         symbolCount = 0, uploadLength = 0;
 
     
+    
+    //======================================================================================
+    //                                Check Client Parameter
+    //======================================================================================
+    
     //URL of the TcAdsWebService.dll
     if (typeof service.serviceUrl !== 'string') {
         log('TAME library error: Service URL is not a string!');
@@ -204,7 +211,6 @@ TAME.WebServiceClient = function (service) {
     if (typeof service.serviceUser === 'string' && typeof service.servicePassword === 'string') {
         log('TAME library info: Username and password set. Authenticated requests will be used.');
     } else {
-        log('TAME library info: Username and/or password not set. Anonymous requests are used.');
         service.serviceUser = null;
         service.servicePassword = null;
     }
@@ -234,11 +240,12 @@ TAME.WebServiceClient = function (service) {
     this.useCheckBounds = true;
     
     //ADS states
-    this.adsState = '';
-    //this.adsStateNr = undefined;
-    //this.deviceState = undefined;
+    this.adsState = null;
+    this.adsStateTxt = '';
+    this.deviceState = null;
     
         
+    
     //======================================================================================
     //                                 Helper Functions
     //======================================================================================
@@ -471,7 +478,7 @@ TAME.WebServiceClient = function (service) {
     
     
     /**
-     * This function creates an XMLHttpRequest object.
+     * This function creates a XMLHttpRequest object.
      * 
      * @return {Object} xmlHttpReq  A XMLHttpRequest.
      */
@@ -1240,7 +1247,6 @@ TAME.WebServiceClient = function (service) {
     //======================================================================================
     //                                  Decoder Functions
     //======================================================================================
-
 
     /**
      * Convert a number to a hex string.
@@ -2130,8 +2136,7 @@ TAME.WebServiceClient = function (service) {
     
     //======================================================================================
     //                     Functions for Creating Request Descriptors
-    //======================================================================================
-    
+    //======================================================================================  
     
     /**
      * Create the Request Descriptor for a single variable. An item list
@@ -3316,9 +3321,9 @@ TAME.WebServiceClient = function (service) {
     
     
     //----------------------------Test--------------------------------
-    log('TAME library info: Reading the PLC state ...');
-    instance.readAdsState({sync:true});
-    log('TAME library info: Current PLC state: ' + instance.adsStateTxt);
+    //log('TAME library info: Reading the PLC state ...');
+    //instance.readAdsState({sync:true});
+    //log('TAME library info: Current PLC state: ' + instance.adsStateTxt);
     //----------------------------Test--------------------------------
     
     /**
