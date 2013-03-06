@@ -1817,7 +1817,7 @@ TAME.WebServiceClient = function (service) {
      */
     function parseReadReq(adsReq) {
         
-        var response = adsReq.xmlHttpReq.responseXML.documentElement,
+        var response,
         itemList = adsReq.reqDescr.items,
         arrType = [],
         strAddr = 0,
@@ -1826,6 +1826,7 @@ TAME.WebServiceClient = function (service) {
     
         try {
 
+            response = adsReq.xmlHttpReq.responseXML.documentElement;
             dataString = decodeBase64(response.getElementsByTagName('ppData')[0].firstChild.data);
             
             //Run through the elements in the item list.
@@ -1900,7 +1901,7 @@ TAME.WebServiceClient = function (service) {
      */
     function parseSumReadReq(adsReq) {
         
-        var response = adsReq.xmlHttpReq.responseXML.documentElement,
+        var response,
         itemList = adsReq.reqDescr.items,
         arrType = [],
         strAddr = 0,
@@ -2035,7 +2036,7 @@ TAME.WebServiceClient = function (service) {
         } 
     
         try {
-
+            response = adsReq.xmlHttpReq.responseXML.documentElement;
             dataString = decodeBase64(response.getElementsByTagName('ppRdData')[0].firstChild.data);
             
             //Read the error codes of the ADS sub commands.
@@ -2120,9 +2121,11 @@ TAME.WebServiceClient = function (service) {
      * @param {Object} adsReq   ADS Reqest Object
      */
     function parseAdsState(adsReq) {
-        var response = adsReq.xmlHttpReq.responseXML.documentElement;
+        
+        var response;
           
         try {
+            response = adsReq.xmlHttpReq.responseXML.documentElement;
             instance.adsState = parseInt(response.getElementsByTagName('pAdsState')[0].firstChild.data, 10);
             instance.adsStateTxt = adsStates[instance.adsState];
             instance.deviceState = parseInt(response.getElementsByTagName('pDeviceState')[0].firstChild.data, 10);
@@ -3003,16 +3006,30 @@ TAME.WebServiceClient = function (service) {
      */
     this.parseResponse = function(adsReq){
     
-        var response = adsReq.xmlHttpReq.responseXML.documentElement,
-        errorCode, errorText;
+        var response, errorCode, errorText;
         
         //Acknowledge the receive of a request with index 'id'.
         if (typeof adsReq.reqDescr.id === 'number') {
             currReq[adsReq.reqDescr.id] = 0;
         }
         
+        //Check if the XML data object is valid.
+        if (adsReq.xmlHttpReq.responseXML === null) {
+            log('TAME library error: Request contains no XML data. Object "responseXML" is null.');
+            log('TAME library error: This is the "responseText":');
+            log(adsReq.xmlHttpReq.responseText);
+        }
+        
+        try {
+            response = adsReq.xmlHttpReq.responseXML.documentElement;
+        } catch (e) {
+            log('TAME library error: No XML data in server response:' + e);
+            return;
+        }
+               
         //Look for errors in the response string.
         try {
+            
             errorText = response.getElementsByTagName('faultstring')[0].firstChild.data;
             try {
                 errorCode = response.getElementsByTagName('errorcode')[0].firstChild.data;
@@ -3183,10 +3200,10 @@ TAME.WebServiceClient = function (service) {
      * @param {Object} adsReq   An ADS Request Descriptor.
      */
     function parseUploadInfo(adsReq) {
-        var response = adsReq.xmlHttpReq.responseXML.documentElement,
-        dataString, dataSubString, data, adsReq2;
-          
+        var response, dataString, dataSubString, data, adsReq2;
+
         try {
+            response = adsReq.xmlHttpReq.responseXML.documentElement;
             dataString = decodeBase64(response.getElementsByTagName('ppData')[0].firstChild.data);          
             dataSubString = dataString.substr(0, 4);
             symbolCount = subStringToData(dataSubString, 'DWORD');
@@ -3217,7 +3234,7 @@ TAME.WebServiceClient = function (service) {
      * @param {Object} adsReq   An ADS Request Descriptor.
      */
     function parseUpload(adsReq) {
-        var response = adsReq.xmlHttpReq.responseXML.documentElement,
+        var response,
         strAddr = 0,
         igOffs = 4,
         ioOffs = 8,
@@ -3226,6 +3243,7 @@ TAME.WebServiceClient = function (service) {
         dataString, dataSubString, data, cnt, infoLen, nameAndType, typeArr, arrayLength, type, elem;
         
         try {
+            response = adsReq.xmlHttpReq.responseXML.documentElement;
             dataString = decodeBase64(response.getElementsByTagName('ppData')[0].firstChild.data);
             
             for (cnt = 0; cnt < symbolCount; cnt++) {
