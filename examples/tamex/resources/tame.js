@@ -2735,8 +2735,16 @@ TAME.WebServiceClient = function (service) {
             //Length of the data type.
             //Maximum lenght is limited to 4 (due to structure padding),
             //the lenght of strings is calculated later.
+            if (isNaN(plcTypeLen[type])) {
+                log('TAME library error: Could not get the length of the data type: ' + type);
+                log('TAME library error: Probably wrong type definition. Please check the manual.');
+                log(reqDescr);
+                return;
+            }
+            
             len = (plcTypeLen[type] < 4) ? plcTypeLen[type] : 4;
             
+        
             //4-byte padding within structures.
             //reqDescr.dataAlign4 is only set in "writeStruct/readStruct" and
             //"writeArrayOfStruct/readArrayOfStruct"
@@ -2818,6 +2826,12 @@ TAME.WebServiceClient = function (service) {
                 format = arrType[1];
 
                 //Set the length of the PLC variable.
+                if (isNaN(plcTypeLen[type])) {
+                    log('TAME library error: Could not get the length of the data type: ' + type);
+                    log('TAME library error: Probably wrong type definition. Please check the manual.');
+                    log(reqDescr);
+                    return;
+                }
                 if (type === 'STRING') { 
                     if (typeof format === 'string') {
                         strlen = parseInt(format, 10);
