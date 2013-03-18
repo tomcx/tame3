@@ -1,12 +1,14 @@
                        TAME V3.2b Release Notes 
                        ------------------------
                        
-- TOD values can be a string now, i.e. "21:32".
+- Values for writing TOD variables can be a string now, i.e. "21:32".
 
-- Function "readAdsState()" added for checking the current state of PLC.
+- Function "readAdsState()" added for checking the current state of PLC 
+  (run/stop).
 
 - Authentication added.
 
+- More error messages.
 
 
 
