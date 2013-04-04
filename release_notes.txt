@@ -1,4 +1,4 @@
-                       TAME V3.2b Release Notes 
+                       TAME V3.2 Release Notes 
                        ------------------------
                        
 - Values for writing TOD variables can be a string now, i.e. "21:32".
