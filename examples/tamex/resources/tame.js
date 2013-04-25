@@ -1,5 +1,5 @@
 /*!
- * TAME [TwinCAT ADS Made Easy] V3.2 beta
+ * TAME [TwinCAT ADS Made Easy] V3.3 beta
  * 
  * Copyright (c) 2009-2013 Thomas Schmidt; t.schmidt.p1 at freenet.de
  * 
@@ -1968,7 +1968,7 @@ TAME.WebServiceClient = function (service) {
         }
         
         /*
-         * Parse the stucture definition an compute the data of
+         * Parse the stucture definition and compute the data of
          * the substring.
          */
         function parseStructure() {
@@ -2112,6 +2112,51 @@ TAME.WebServiceClient = function (service) {
             log(item);
             return;
         }
+    }
+    
+    
+    /**
+     * Decode the response string of a SumWriteRequest.
+     * 
+     * @param {Object} adsReq   ADS Request Object
+     */
+    function parseSumWriteReq(adsReq) {
+        
+        var response,
+        itemList = adsReq.reqDescr.items,
+        arrType = [],
+        strAddr = 0,
+        subStrAddr = 0,
+        dataObj = window,
+        item, dataString, dataSubString, data, len, type, format, idx, listlen, errorCode;
+        
+        
+        //Just look for errors.
+        try {
+            response = adsReq.xmlHttpReq.responseXML.documentElement;
+            dataString = decodeBase64(response.getElementsByTagName('ppRdData')[0].firstChild.data);
+            
+            //Read the error codes of the ADS sub commands.
+            for (idx = 0, listlen = itemList.length; idx < listlen; idx++) {
+                
+                dataSubString = dataString.substr(strAddr, 4);
+                errorCode = subStringToData(dataSubString, 'DWORD');
+                
+                if (errorCode !== 0) {
+                    log('TAME library error: ADS sub command error while processing a SumReadRequest!');
+                    log('Error code: ' + errorCode);
+                    log(itemList[idx]);
+                }
+                
+                strAddr += 4;
+            }
+            
+        } catch (e) {
+            log('TAME library error: Parsing of SumWriteRequest failed:' + e);
+            log(item);
+            return;
+        }
+        
     }
     
     
@@ -2883,7 +2928,6 @@ TAME.WebServiceClient = function (service) {
             arrType = [],
             reqBuffer = [],
             bytes = [],
-            bIdx = 0,
             listlen  = itemList.length,
             dummy = {},
             type, format, item, idx, len, pwrData;
@@ -2944,6 +2988,110 @@ TAME.WebServiceClient = function (service) {
         };
         createRequest(adsReq).send();
     };
+    
+    
+    /**
+     * This is the function for creating a sum write request.
+     * 
+     * @param {Object}  reqDescr    The Request Descriptor. Besides other information
+     *                              this object contains the allocation of PLC and
+     *                              JavaScript variables in an item list.
+     */
+    this.sumWriteReq = function(reqDescr) {
+        var adsReq = {},
+            itemList = reqDescr.items,
+            arrType = [],
+            reqBuffer = [],
+            bytes = [],
+            listlen  = itemList.length,
+            dummy = {},
+            type, format, item, idx, len, pwrData;
+                 
+        //Preset the read lenth with the number of byte for error codes.
+        reqDescr.readLength = listlen * 4;
+        
+        //Write the general commando information to the Request Buffer
+        for (idx = 0; idx < listlen; idx++) {
+            
+            item = itemList[idx];
+            
+            //Set the variable name to upper case.
+            if (typeof item.name === 'string') { 
+                item.name = item.name.toUpperCase();
+            }
+            
+            //Get type and formatting string.
+            arrType = getTypeAndFormat(item);
+            type = arrType[0];
+            format = arrType[1];
+            
+            //Length of the data type.
+            len = symTable[item.name].size;
+            
+            reqDescr.readLength += len;
+         
+            //Build the request buffer.
+            //The function dataToByteArray expects an item with a value for
+            //converting, so a dummy object is used here.
+            dummy.val = getIndexGroup(item);
+            bytes = dataToByteArray(dummy, 'UDINT', format, 4);
+            reqBuffer = reqBuffer.concat(bytes);
+            
+            dummy.val = getIndexOffset(item);
+            bytes = dataToByteArray(dummy, 'UDINT', format, 4);
+            reqBuffer = reqBuffer.concat(bytes);
+            
+            dummy.val = len;
+            bytes = dataToByteArray(dummy, 'UDINT', format, 4);
+            reqBuffer = reqBuffer.concat(bytes);
+                   
+        }
+        
+        //Write the data to the Request Buffer
+        for (idx = 0; idx < listlen; idx++) {
+            
+            item = itemList[idx];
+            
+            //Set the variable name to upper case.
+            if (typeof item.name === 'string') { 
+                item.name = item.name.toUpperCase();
+            }
+            
+            //Get type and formatting string.
+            arrType = getTypeAndFormat(item);
+            type = arrType[0];
+            format = arrType[1];
+            
+
+            //Length of the data type.
+            len = symTable[item.name].size;
+            
+            //reqDescr.readLength += len;
+            
+            //Build the request buffer.
+            //The function dataToByteArray expects an item with a value for
+            //converting, so a dummy object is used here.
+            bytes = dataToByteArray(item, type, format, len);
+            reqBuffer = reqBuffer.concat(bytes);
+            
+        }
+              
+        //Convert the request buffer to Base64 coded data.
+        if (reqBuffer.length > 0) {
+            pwrData = encodeBase64(reqBuffer);
+        }   
+        
+        //Generate the ADS request object and call the send function.
+        adsReq = {
+            method: 'ReadWrite',
+            indexGroup: indexGroups.SumWr,
+            indexOffset: itemList.length,
+            pwrData: pwrData,
+            reqDescr: reqDescr
+        };
+        createRequest(adsReq).send();
+    };
+    
     
     
     /**
@@ -3078,6 +3226,9 @@ TAME.WebServiceClient = function (service) {
                     break;
                 case indexGroups.SumRd:
                     parseSumReadReq(adsReq);
+                    break;
+                case indexGroups.SumWr:
+                    parseSumWriteReq(adsReq);
                     break;
                 default:
                     parseReadReq(adsReq); 

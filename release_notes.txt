@@ -1,4 +1,12 @@
-                       TAME V3.2b Release Notes 
+                       TAME V3.3b Release Notes 
+                       ------------------------
+
+- SumWriteRequest added. Only basic data types are supported yet (no arrays, 
+  no structures). TwinCAT 2.11 >= Build 1550 is needed to use this feature.
+  
+
+
+                       TAME V3.2 Release Notes 
                        ------------------------
                        
 - Values for writing TOD variables can be a string now, i.e. "21:32".
