@@ -3005,10 +3005,90 @@ TAME.WebServiceClient = function (service) {
             bytes = [],
             listlen  = itemList.length,
             dummy = {},
-            type, format, item, idx, len, pwrData;
+            type, format, item, idx, len, pwrData, i, arrayLength;
+        
+        
+        function getLength() {
+            var strlen;
+            
+            len = plcTypeLen[type];
+            
+            if (type === 'STRING') {
+                if (format !== undefined) {
+                    strlen = parseInt(format, 10);
+                } else if (typeof symTable[item.name].stringLength === 'number') {
+                    strlen = symTable[item.name].stringLength;
+                }
+                format = (isValidStringLen(strlen) ? strlen : len) + 1;             
+            }
+            
+        }
+        
+        
+        
+        function parseStruct() {
+            
+            var j, defArr, lenArrElem, lastDefArr, mod, elem;
+            
+            for (elem in item.def) {
+                
+                if (item.def.hasOwnProperty(elem)) {
+                
+                    defArr = item.def[elem].split('.');
+                    if (defArr[0] === 'ARRAY') {
+                        lenArrElem = parseInt(defArr[1], 10);
+                        lastDefArr = defArr.length - 1;
+                        for (j = 0; j < lenArrElem; j++) {
+                            type = defArr[2];
+                            if (defArr[lastDefArr] === 'SP') {
+                                if (lastDefArr >= 4) {
+                                    format = defArr.slice(3, -1).join('.');
+                                }
+                            } else {
+                                if (lastDefArr >= 3) {
+                                    format = defArr.slice(3).join('.');
+                                }
+                            }
+                            
+                            //Add index in case of an array of struct
+                            if (i !== undefined) {
+                                dummy.val = item.val[i][elem][j];
+                            } else {
+                                dummy.val = item.val[elem][j];
+                            }
+
+                            getLength();
+                            //checkAlignment();
+                            bytes = dataToByteArray(dummy, type, format, len);
+                            reqBuffer = reqBuffer.concat(bytes);
+                        }
+                    } else {
+                        
+                        //Check if we are in an array of struct
+                        if (i !== undefined) {
+                            dummy.val = item.val[i][elem];
+                        } else {
+                            dummy.val = item.val[elem];
+                        }
+                        
+                        type = defArr[0];
+                        format = defArr.slice(1).join('.');
+                        getLength();
+
+                        //checkAlignment();
+                        bytes = dataToByteArray(dummy, type, format, len);
+                        reqBuffer = reqBuffer.concat(bytes);
+                    }
+                    
+                }
+            }
+        }
+        
+        
                  
         //Preset the read lenth with the number of byte for error codes.
         reqDescr.readLength = listlen * 4;
+
         
         //Write the general commando information to the Request Buffer
         for (idx = 0; idx < listlen; idx++) {
@@ -3028,7 +3108,7 @@ TAME.WebServiceClient = function (service) {
             //Length of the data type.
             len = symTable[item.name].size;
             
-            reqDescr.readLength += len;
+            //reqDescr.readLength += len;
          
             //Build the request buffer.
             //The function dataToByteArray expects an item with a value for
@@ -3066,13 +3146,50 @@ TAME.WebServiceClient = function (service) {
             //Length of the data type.
             len = symTable[item.name].size;
             
-            //reqDescr.readLength += len;
-            
             //Build the request buffer.
             //The function dataToByteArray expects an item with a value for
             //converting, so a dummy object is used here.
-            bytes = dataToByteArray(item, type, format, len);
-            reqBuffer = reqBuffer.concat(bytes);
+            switch (type) {
+                    
+                case 'ARRAY':
+                    
+                    arrayLength = symTable[item.name].arrayLength;
+                    if (symTable[item.name].arrayDataType === 'USER') {
+                        //Array of structures.
+                        for (i = 0; i < arrayLength; i++) {
+                            parseStruct();
+                        }
+                        
+                    } else {
+                        //Plain array.
+                        type = symTable[item.name].arrayDataType;
+                        
+                        if (type === 'STRING') {
+                            format = symTable[item.name].stringLength;
+                        } else {
+                            len = symTable[item.name].itemSize;
+                        }
+                        
+                        for (i = 0; i < arrayLength; i++) {
+                            dummy.val = item.val[i];
+                            bytes = dataToByteArray(dummy, type, format, len);
+                            reqBuffer = reqBuffer.concat(bytes);
+                        }
+                            
+                    }
+                    break;
+                case 'USER' :
+                    parseStruct();
+                    break;
+                default:
+                    if (type === 'STRING') {
+                        format = symTable[item.name].stringLength;
+                    } else {
+                        len = symTable[item.name].size;
+                    }
+                    bytes = dataToByteArray(item, type, format, len);
+                    reqBuffer = reqBuffer.concat(bytes);             
+            }
             
         }
               
