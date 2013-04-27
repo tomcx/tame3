@@ -1,8 +1,9 @@
                        TAME V3.3b Release Notes 
                        ------------------------
 
-- SumWriteRequest added. Only basic data types are supported yet (no arrays, 
-  no structures). TwinCAT 2.11 >= Build 1550 is needed to use this feature.
+- SumWriteRequest added. TwinCAT 2.11 >= Build 1550 is needed to use this feature.
+
+- Bug in SumReadRequest fixed.
   
 
 

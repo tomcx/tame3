@@ -1912,35 +1912,6 @@ TAME.WebServiceClient = function (service) {
         
         
         /**
-         * Function for adjusting the address of the data in the string
-         * if a 4-byte-alignment is used. 
-         */
-        function checkAlignment() {
-            
-            var vlen, mod;
-            
-            if (dataAlign4 === true && type !== 'STRING') {
-                //Set the length for calculating padding bytes
-                vlen = len < 4 ? len : 4;
-                
-                //Compute the address for a 4-byte alignment.
-                if (vlen > 1 && subStrAddr > 0) {
-                    mod = subStrAddr % vlen;
-                    if (mod > 0) {
-                        subStrAddr += vlen - mod;
-                    }
-                }
-                
-                //Store the maximum length of the PLC variables
-                //for inserting padding bytes at the end of the structure.
-                if (vlen > vlenMax) {
-                    vlenMax = vlen;
-                }
-                 
-            }
-        }
-        
-        /**
          * Slice a piece out of the substring, convert the data and write it
          * to the JavaScript variable.  
          */
@@ -1975,6 +1946,34 @@ TAME.WebServiceClient = function (service) {
             
             var j, defArr, lenArrElem, lastDefArr, mod, elem;
             
+            /**
+             * Function for adjusting the address of the data in the string
+             * if a 4-byte-alignment is used. 
+             */
+            function checkAlignment() {
+                
+                var vlen, mod;
+                
+                if (dataAlign4 === true && type !== 'STRING') {
+                    //Set the length for calculating padding bytes
+                    vlen = len < 4 ? len : 4;
+                    
+                    //Compute the address for a 4-byte alignment.
+                    if (vlen > 1 && subStrAddr > 0) {
+                        mod = subStrAddr % vlen;
+                        if (mod > 0) {
+                            subStrAddr += vlen - mod;
+                        }
+                    }
+                    
+                    //Store the maximum length of the PLC variables
+                    //for inserting padding bytes at the end of the structure.
+                    if (vlen > vlenMax) {
+                        vlenMax = vlen;
+                    }                    
+                }
+            }
+            
             for (elem in item.def) {
                 
                 if (item.def.hasOwnProperty(elem)) {
@@ -1997,7 +1996,7 @@ TAME.WebServiceClient = function (service) {
                                 }
                             }
                             //Add index in case of an array of struct
-                            if (i !== undefined) {
+                            if (i !== null) {
                                 jvar = i + '.' + jvar;
                             }
                             
@@ -2007,7 +2006,7 @@ TAME.WebServiceClient = function (service) {
                         }
                     } else {
                         //Check if we are in an array of struct
-                        if (i !== undefined) {
+                        if (i !== null) {
                             jvar = i + '.' + elem;
                         } else {
                             jvar = elem;
@@ -2068,8 +2067,12 @@ TAME.WebServiceClient = function (service) {
                 //Get the length of the data types.
                 itemSize = symTable[item.name].size;
                 
+                //Reset counter for arrays.
+                i = null;
+                
                 //Slice the string and decode the data
                 dataSubString = dataString.substr(strAddr, itemSize);
+                
                 
                 switch (type) {
                     
@@ -3005,10 +3008,13 @@ TAME.WebServiceClient = function (service) {
             bytes = [],
             listlen  = itemList.length,
             dummy = {},
-            type, format, item, idx, len, pwrData, i, arrayLength;
+            type, format, item, idx, len, pwrData, i, arrayLength, vlenMax, mod, pcount;
         
         
-        function getLength() {
+        /**
+         * Function for getting the length of a variable.
+         */
+        function getVarLength() {
             var strlen;
             
             len = plcTypeLen[type];
@@ -3019,16 +3025,48 @@ TAME.WebServiceClient = function (service) {
                 } else if (typeof symTable[item.name].stringLength === 'number') {
                     strlen = symTable[item.name].stringLength;
                 }
-                format = (isValidStringLen(strlen) ? strlen : len) + 1;             
+                format = (isValidStringLen(strlen) ? strlen : len);       
             }
             
         }
         
         
-        
+        /*
+         * Parse the stucture definition.
+         */
         function parseStruct() {
             
-            var j, defArr, lenArrElem, lastDefArr, mod, elem;
+            var j, defArr, lenArrElem, lastDefArr, mod, elem, subBuffer = [];
+            
+            /**
+             * Function for adding padding bytes if a 4-byte-alignment is used. 
+             */
+            function checkAlignment() {
+                
+                var vlen;
+                
+                if (dataAlign4 === true && type !== 'STRING') {
+                    //Set the length for calculating padding bytes
+                    vlen = len < 4 ? len : 4;
+                    
+                    //Compute the padding bytes for a 4-byte alignment.
+                    if (vlen > 1 && subBuffer.length > 0) {
+                        mod = subBuffer.length % vlen;
+                        if (mod > 0) {
+                            pcount = vlen - mod;
+                            for (i = 1; i <= pcount; i++) {
+                                subBuffer.push(0);
+                            }
+                        }
+                    }
+                    
+                    //Store the maximum length of the PLC variables
+                    //for inserting padding bytes at the end of the structure.
+                    if (vlen > vlenMax) {
+                        vlenMax = vlen;
+                    }
+                }
+            }
             
             for (elem in item.def) {
                 
@@ -3049,23 +3087,23 @@ TAME.WebServiceClient = function (service) {
                                     format = defArr.slice(3).join('.');
                                 }
                             }
-                            
+
                             //Add index in case of an array of struct
-                            if (i !== undefined) {
+                            if (i !== null) {
                                 dummy.val = item.val[i][elem][j];
                             } else {
                                 dummy.val = item.val[elem][j];
                             }
 
-                            getLength();
-                            //checkAlignment();
+                            getVarLength();
+                            checkAlignment();
                             bytes = dataToByteArray(dummy, type, format, len);
-                            reqBuffer = reqBuffer.concat(bytes);
+                            subBuffer = subBuffer.concat(bytes);
                         }
                     } else {
                         
                         //Check if we are in an array of struct
-                        if (i !== undefined) {
+                        if (i !== null) {
                             dummy.val = item.val[i][elem];
                         } else {
                             dummy.val = item.val[elem];
@@ -3073,23 +3111,33 @@ TAME.WebServiceClient = function (service) {
                         
                         type = defArr[0];
                         format = defArr.slice(1).join('.');
-                        getLength();
+                        getVarLength();
 
-                        //checkAlignment();
+                        checkAlignment();
                         bytes = dataToByteArray(dummy, type, format, len);
-                        reqBuffer = reqBuffer.concat(bytes);
-                    }
-                    
+                        subBuffer = subBuffer.concat(bytes);
+                    }    
                 }
             }
+            
+            //Calculate the padding bytes at the end of the structure.
+            if (dataAlign4 === true && vlenMax > 1 && defArr[0] !== 'STRING') {
+                mod = subBuffer.length % vlenMax;
+                if (mod > 0) {
+                    pcount = vlenMax - mod;
+                    for (i = 1; i <= pcount; i++) {
+                        subBuffer.push(0);
+                    }
+                }
+            }
+            
+            //Add the subPuffer with the structure data to the request buffer.
+            reqBuffer = reqBuffer.concat(subBuffer);  
         }
-        
-        
-                 
+               
         //Preset the read lenth with the number of byte for error codes.
         reqDescr.readLength = listlen * 4;
-
-        
+    
         //Write the general commando information to the Request Buffer
         for (idx = 0; idx < listlen; idx++) {
             
@@ -3146,6 +3194,9 @@ TAME.WebServiceClient = function (service) {
             //Length of the data type.
             len = symTable[item.name].size;
             
+            //Reset counter for arrays.
+            i = null;
+            
             //Build the request buffer.
             //The function dataToByteArray expects an item with a value for
             //converting, so a dummy object is used here.
@@ -3174,14 +3225,15 @@ TAME.WebServiceClient = function (service) {
                             dummy.val = item.val[i];
                             bytes = dataToByteArray(dummy, type, format, len);
                             reqBuffer = reqBuffer.concat(bytes);
-                        }
-                            
+                        }       
                     }
                     break;
                 case 'USER' :
+                    //Structures.
                     parseStruct();
                     break;
                 default:
+                    //Simple data types.
                     if (type === 'STRING') {
                         format = symTable[item.name].stringLength;
                     } else {
@@ -3189,8 +3241,7 @@ TAME.WebServiceClient = function (service) {
                     }
                     bytes = dataToByteArray(item, type, format, len);
                     reqBuffer = reqBuffer.concat(bytes);             
-            }
-            
+            }       
         }
               
         //Convert the request buffer to Base64 coded data.
@@ -3625,6 +3676,7 @@ TAME.WebServiceClient = function (service) {
     //instance.readAdsState({sync:true});
     //log('TAME library info: Current PLC state: ' + instance.adsStateTxt);
     //----------------------------Test--------------------------------
+    
     
     /**
      * !!!!!INITIALIZATION OF THE SYMBOL TABLE!!!!!
