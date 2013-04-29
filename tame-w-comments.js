@@ -3008,7 +3008,7 @@ TAME.WebServiceClient = function (service) {
             bytes = [],
             listlen  = itemList.length,
             dummy = {},
-            type, format, item, idx, len, pwrData, i, arrayLength, vlenMax, mod, pcount;
+            type, format, item, idx, len, pwrData, i, k, arrayLength, vlenMax, mod, pcount;
         
         
         /**
@@ -3043,8 +3043,8 @@ TAME.WebServiceClient = function (service) {
              */
             function checkAlignment() {
                 
-                var vlen;
-                
+                var vlen, k;
+
                 if (dataAlign4 === true && type !== 'STRING') {
                     //Set the length for calculating padding bytes
                     vlen = len < 4 ? len : 4;
@@ -3054,7 +3054,7 @@ TAME.WebServiceClient = function (service) {
                         mod = subBuffer.length % vlen;
                         if (mod > 0) {
                             pcount = vlen - mod;
-                            for (i = 1; i <= pcount; i++) {
+                            for (k = 1; k <= pcount; k++) {
                                 subBuffer.push(0);
                             }
                         }
@@ -3065,6 +3065,7 @@ TAME.WebServiceClient = function (service) {
                     if (vlen > vlenMax) {
                         vlenMax = vlen;
                     }
+
                 }
             }
             
@@ -3072,51 +3073,57 @@ TAME.WebServiceClient = function (service) {
                 
                 if (item.def.hasOwnProperty(elem)) {
                 
-                    defArr = item.def[elem].split('.');
-                    if (defArr[0] === 'ARRAY') {
-                        lenArrElem = parseInt(defArr[1], 10);
-                        lastDefArr = defArr.length - 1;
-                        for (j = 0; j < lenArrElem; j++) {
-                            type = defArr[2];
-                            if (defArr[lastDefArr] === 'SP') {
-                                if (lastDefArr >= 4) {
-                                    format = defArr.slice(3, -1).join('.');
+                    try {
+                        defArr = item.def[elem].split('.');
+                        if (defArr[0] === 'ARRAY') {
+                            lenArrElem = parseInt(defArr[1], 10);
+                            lastDefArr = defArr.length - 1;
+                            for (j = 0; j < lenArrElem; j++) {
+                                type = defArr[2];
+                                if (defArr[lastDefArr] === 'SP') {
+                                    if (lastDefArr >= 4) {
+                                        format = defArr.slice(3, -1).join('.');
+                                    }
+                                } else {
+                                    if (lastDefArr >= 3) {
+                                        format = defArr.slice(3).join('.');
+                                    }
                                 }
-                            } else {
-                                if (lastDefArr >= 3) {
-                                    format = defArr.slice(3).join('.');
+    
+                                //Add index in case of an array of struct
+                                if (i !== null) {
+                                    dummy.val = item.val[i][elem][j];
+                                } else {
+                                    dummy.val = item.val[elem][j];
                                 }
+    
+                                getVarLength();
+                                checkAlignment();
+                                bytes = dataToByteArray(dummy, type, format, len);
+                                subBuffer = subBuffer.concat(bytes);
                             }
-
-                            //Add index in case of an array of struct
+                        } else {
+                            
+                            //Check if we are in an array of struct
                             if (i !== null) {
-                                dummy.val = item.val[i][elem][j];
+                                dummy.val = item.val[i][elem];
                             } else {
-                                dummy.val = item.val[elem][j];
+                                dummy.val = item.val[elem];
                             }
-
+                            
+                            type = defArr[0];
+                            format = defArr.slice(1).join('.');
                             getVarLength();
+    
                             checkAlignment();
                             bytes = dataToByteArray(dummy, type, format, len);
                             subBuffer = subBuffer.concat(bytes);
                         }
-                    } else {
                         
-                        //Check if we are in an array of struct
-                        if (i !== null) {
-                            dummy.val = item.val[i][elem];
-                        } else {
-                            dummy.val = item.val[elem];
-                        }
-                        
-                        type = defArr[0];
-                        format = defArr.slice(1).join('.');
-                        getVarLength();
-
-                        checkAlignment();
-                        bytes = dataToByteArray(dummy, type, format, len);
-                        subBuffer = subBuffer.concat(bytes);
-                    }    
+                    } catch (e) {
+                        log('TAME library error: Could not set values for a structure in SumWriteReq: ' + e);
+                        log(item);
+                    } 
                 }
             }
             
@@ -3125,7 +3132,7 @@ TAME.WebServiceClient = function (service) {
                 mod = subBuffer.length % vlenMax;
                 if (mod > 0) {
                     pcount = vlenMax - mod;
-                    for (i = 1; i <= pcount; i++) {
+                    for (k = 1; k <= pcount; k++) {
                         subBuffer.push(0);
                     }
                 }
@@ -3204,7 +3211,16 @@ TAME.WebServiceClient = function (service) {
                     
                 case 'ARRAY':
                     
-                    arrayLength = symTable[item.name].arrayLength;
+                    arrayLength = parseInt(symTable[item.name].arrayLength, 10);
+
+                    if (arrayLength !== item.val.length) {
+                        log('TAME library error: Array length in JS differs from the length in the PLC!');
+                        log('Length in JS: ' +  item.val.length);
+                        log('Length in PLC: ' +  arrayLength);
+                        log(item);
+                        return;
+                    }
+                    
                     if (symTable[item.name].arrayDataType === 'USER') {
                         //Array of structures.
                         for (i = 0; i < arrayLength; i++) {
@@ -3225,7 +3241,7 @@ TAME.WebServiceClient = function (service) {
                             dummy.val = item.val[i];
                             bytes = dataToByteArray(dummy, type, format, len);
                             reqBuffer = reqBuffer.concat(bytes);
-                        }       
+                        }
                     }
                     break;
                 case 'USER' :
