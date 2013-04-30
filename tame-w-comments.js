@@ -3008,7 +3008,8 @@ TAME.WebServiceClient = function (service) {
             bytes = [],
             listlen  = itemList.length,
             dummy = {},
-            type, format, item, idx, len, pwrData, i, k, arrayLength, vlenMax, mod, pcount;
+            vlenMax = 0,
+            type, format, item, idx, len, pwrData, i, k, arrayLength, mod, pcount;
         
         
         /**
@@ -3162,8 +3163,6 @@ TAME.WebServiceClient = function (service) {
             
             //Length of the data type.
             len = symTable[item.name].size;
-            
-            //reqDescr.readLength += len;
          
             //Build the request buffer.
             //The function dataToByteArray expects an item with a value for
@@ -3263,7 +3262,7 @@ TAME.WebServiceClient = function (service) {
         //Convert the request buffer to Base64 coded data.
         if (reqBuffer.length > 0) {
             pwrData = encodeBase64(reqBuffer);
-        }   
+        }
         
         //Generate the ADS request object and call the send function.
         adsReq = {
