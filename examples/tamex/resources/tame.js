@@ -1907,8 +1907,9 @@ TAME.WebServiceClient = function (service) {
         strAddr = 0,
         subStrAddr = 0,
         dataObj = window,
+        vlenMax = 0,
         item, dataString, dataSubString, data, len, type, format, idx, listlen, errorCode, jvar, i,
-        arrayLength, vlenMax, itemSize;
+        arrayLength, itemSize;
         
         
         /**
