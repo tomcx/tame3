@@ -57,9 +57,9 @@ TAME.WebServiceClient = function (service) {
      * @param {Mixed} message  The message to be logged.
      */
     function log(message) {
-        try{
+        try {
             window.console.log(message);
-         } catch(e) {
+        } catch(e) {
             //fallback
             alert(message);
         }
@@ -1154,7 +1154,7 @@ TAME.WebServiceClient = function (service) {
                     //set the time zone to UTC.
                     val = item.val.getTime() / 1000 - item.val.getTimezoneOffset() * 60;
                 } else {
-                    log('TAME library error: Date is not an object!');
+                    log('TAME library error: Value of a DATE variable in write request is not a date object!');
                     log(item);
                 }
                 bytes = numToByteArr(val, len);
@@ -1165,7 +1165,7 @@ TAME.WebServiceClient = function (service) {
                     //set the time zone to UTC.
                     val = item.val.getTime() / 1000 - item.val.getTimezoneOffset() * 60;
                 } else {
-                    log('TAME library error: Date is not an object!');
+                    log('TAME library error: Value of a DT variable in write request is not a date object!');
                     log(item);
                 }
                 bytes = numToByteArr(val, len);
@@ -1188,7 +1188,7 @@ TAME.WebServiceClient = function (service) {
                     }
                     val = stringToTime(item.val, format);
                 } else {
-                    log('TAME library error: Time of day is wether a date object nor a string!');
+                    log('TAME library error: TOD value in write request is wether a date object nor a string!');
                     log(item);
                 }
                 bytes = numToByteArr(val, len);
@@ -1216,15 +1216,20 @@ TAME.WebServiceClient = function (service) {
                 break;
             case 'TIME':
                 val = parseInt(item.val, 10);
+                if (isNaN(val)) {
+                    log('TAME library warning: Value of a TIME variable in write request is not defined!');
+                    log(item);
+                    val = 0;
+                }
                 val = toMillisec(val, format);
                 if (val < 0) {
                     val = 0;
-                    log('TAME library warning: Lower limit for TIME variable exceeded!)');
+                    log('TAME library warning: Lower limit for TIME variable in write request exceeded!)');
                     log('value: ' + item.val + format);
                     log(item);
                 } else if (val > 4294967295) {
                     val = 4294967295;
-                    log('TAME library warning: Upper limit for TIME variable exceeded!)');
+                    log('TAME library warning: Upper limit for TIME variable in write request exceeded!)');
                     log('value: ' + item.val + format);
                     log(item);
                 }
