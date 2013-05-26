@@ -1,9 +1,11 @@
-                       TAME V3.3b Release Notes 
+                       TAME V3.3 Release Notes 
                        ------------------------
 
 - SumWriteRequest added. TwinCAT 2.11 >= Build 1550 is needed to use this feature.
 
 - Bug in SumReadRequest fixed.
+
+- Minor impovements.
   
 
 
