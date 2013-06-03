@@ -31,13 +31,15 @@
         <hr>
 
         <section id="main_content">
-          <p><strong>Current version: V3.2</strong></p>
+          <p><strong>Current version: V3.3</strong></p>
 
-<h2>Introduction</h2>
+<h2>
+<a name="introduction" class="anchor" href="#introduction"><span class="octicon octicon-link"></span></a>Introduction</h2>
 
 <p>TAME is JavaScript library created for an easy and comfortable access to the TwinCAT ADS WebService. The name is an acronym for „TwinCAT ADS Made Easy“ and stands also for „taming“ the complexity of ADS and AJAX requests. Originally a „wast product“ from the programming of a browser based visualisation for my home, it has become a (in my opinion) useful little piece of software and I hope it will help others who want to develop their own visualisations.</p>
 
-<h2>Usage</h2>
+<h2>
+<a name="usage" class="anchor" href="#usage"><span class="octicon octicon-link"></span></a>Usage</h2>
 
 <p>The library allows to exchange data with a TwinCAT PLC without any knowledge of ADS or AJAX. The browser connects to the webserver running on the PLC device and the ADS commands are wrapped in AJAX/SOAP requests. </p>
 
@@ -107,17 +109,20 @@
 
 <p>Have a look at the manual for more information. TAME comes with various working examples including the PLC program, the best is to just try them out.</p>
 
-<h2>Features</h2>
+<h2>
+<a name="features" class="anchor" href="#features"><span class="octicon octicon-link"></span></a>Features</h2>
 
-<p>There are methods for read and write access to single variables, variable blocks, arrays and structures in the TwinCAT PLC. New in this version is the SumReadRequest. It allows to read multiple PLC variables without the need of fixed addresses. Variables can now be accessed by name, a major improvement to TAME 2.</p>
+<p>There are methods for read and write access to single variables, variable blocks, arrays and structures in the TwinCAT PLC. New in this version are the sum commands. They allow to read and write multiple PLC variables without the need of fixed addresses. Variables can now be accessed by name, a major improvement to TAME 2.</p>
 
 <p>Supported data types are BOOL, BYTE, WORD, DWORD, USINT, SINT, UINT, INT, UDINT, DINT, TIME, TOD, DT, DATE, REAL, LREAL and STRING. There is also a special „type“ named INT1DP: It's an INT in the PLC, but in JavaScript the variable is of type float with 1 decimal place (i.e. a value of 568 in the PLC is 56.8 in JavaScript). The library provides built-in conversion of date and time values to formatted strings and REAL values can be rounded to a desired number of decimal places. For writing arrays and arrays of structures there is an option to choose only one array item to send to the PLC instead of the whole array. Another feature is the automatic structure padding for exchanging data with ARM-based devices (i.e. CX90xx), which have a 4-byte data alignment. Set the parameter „dataAlign4“ of the client definition to „true“ and you don't need to worry about the alignment of data structures.</p>
 
-<h2>Requirements</h2>
+<h2>
+<a name="requirements" class="anchor" href="#requirements"><span class="octicon octicon-link"></span></a>Requirements</h2>
 
 <p>Requried is a running ADS WebService, look at the <a href="http://infosys.beckhoff.com">Beckhoff Infosys</a> for more information about the installation. And a TwinCAT PLC of course. ;-)</p>
 
-<h2>License</h2>
+<h2>
+<a name="license" class="anchor" href="#license"><span class="octicon octicon-link"></span></a>License</h2>
 
 <p>TAME is dual licensed under the MIT and the GPLv3 license. </p>
 
