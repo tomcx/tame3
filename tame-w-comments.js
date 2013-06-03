@@ -113,6 +113,7 @@ TAME.WebServiceClient = function (service) {
             EndStruct: 0   //should be 0!
         },
         
+        //ADS states
         adsStates = [
             "INVALID",
             "IDLE",
@@ -3076,6 +3077,7 @@ TAME.WebServiceClient = function (service) {
                 }
             }
             
+            //Walk through the structure definiton
             for (elem in item.def) {
                 
                 if (item.def.hasOwnProperty(elem)) {
@@ -3152,7 +3154,7 @@ TAME.WebServiceClient = function (service) {
         //Preset the read lenth with the number of byte for error codes.
         reqDescr.readLength = listlen * 4;
     
-        //Write the general commando information to the Request Buffer
+        //Write the general command information to the Request Buffer
         for (idx = 0; idx < listlen; idx++) {
             
             item = itemList[idx];

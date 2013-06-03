@@ -1,4 +1,4 @@
-/*
+/*!
  * TAME [TwinCAT ADS Made Easy] V3.3
  * 
  * Copyright (c) 2009-2013 Thomas Schmidt; t.schmidt.p1 at freenet.de
