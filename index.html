@@ -4,9 +4,9 @@
     <meta charset='utf-8'>
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
     <link href='https://fonts.googleapis.com/css?family=Chivo:900' rel='stylesheet' type='text/css'>
-    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
-    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
-    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
     <!--[if lt IE 9]>
     <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
@@ -31,98 +31,96 @@
         <hr>
 
         <section id="main_content">
-          <p><strong>Current version: V3.3</strong></p>
+          <p><strong>Current version: V3.4</strong></p>
 
 <h2>
-<a name="introduction" class="anchor" href="#introduction"><span class="octicon octicon-link"></span></a>Introduction</h2>
+<a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction</h2>
 
 <p>TAME is JavaScript library created for an easy and comfortable access to the TwinCAT ADS WebService. The name is an acronym for „TwinCAT ADS Made Easy“ and stands also for „taming“ the complexity of ADS and AJAX requests. Originally a „wast product“ from the programming of a browser based visualisation for my home, it has become a (in my opinion) useful little piece of software and I hope it will help others who want to develop their own visualisations.</p>
 
 <h2>
-<a name="usage" class="anchor" href="#usage"><span class="octicon octicon-link"></span></a>Usage</h2>
+<a id="usage" class="anchor" href="#usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Usage</h2>
 
 <p>The library allows to exchange data with a TwinCAT PLC without any knowledge of ADS or AJAX. The browser connects to the webserver running on the PLC device and the ADS commands are wrapped in AJAX/SOAP requests. </p>
 
 <p>Link the library in your project like any other JavaScript file and create the client like this:</p>
 
-<div class="highlight"><pre><span class="kd">var</span> <span class="nx">Plc</span> <span class="o">=</span>  <span class="nx">TAME</span><span class="p">.</span><span class="nx">WebServiceClient</span><span class="p">.</span><span class="nx">createClient</span><span class="p">({</span>
-    <span class="nx">serviceUrl</span><span class="o">:</span> <span class="s1">'http://192.168.1.2/TcAdsWebService/TcAdsWebService.dll'</span><span class="p">,</span>
-    <span class="nx">amsNetId</span><span class="o">:</span> <span class="s1">'192.168.1.2.1.1'</span>
-<span class="p">});</span>
-</pre></div>
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> Plc <span class="pl-k">=</span>  TAME.WebServiceClient.createClient({
+    serviceUrl<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>http://192.168.1.2/TcAdsWebService/TcAdsWebService.dll<span class="pl-pds">'</span></span>,
+    amsNetId<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>192.168.1.2.1.1<span class="pl-pds">'</span></span>
+});</pre></div>
+
+<p>See the documentation for more options (i.e. AMS port or alignment).</p>
 
 <p>To write a boolean variable to the PLC you just have to write one line of code:</p>
 
-<div class="highlight"><pre><span class="nx">Plc</span><span class="p">.</span><span class="nx">writeBool</span><span class="p">({</span><span class="nx">name</span><span class="o">:</span><span class="s2">"MAIN.MyBoolVar"</span><span class="p">,</span> <span class="nx">val</span><span class="o">:</span> <span class="kc">true</span><span class="p">});</span>
-</pre></div>
+<div class="highlight highlight-javascript"><pre>Plc.writeBool({name<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">"</span>MAIN.MyBoolVar<span class="pl-pds">"</span></span>, val<span class="pl-k">:</span> <span class="pl-c1">true</span>});</pre></div>
 
 <p>Reading a PLC variable and storing the value in a (global) JavaScript variable is also quite easy:</p>
 
-<div class="highlight"><pre><span class="nx">Plc</span><span class="p">.</span><span class="nx">readBool</span><span class="p">({</span><span class="nx">name</span><span class="o">:</span><span class="s2">"MAIN.MyBoolVar"</span><span class="p">,</span> <span class="nx">jvar</span><span class="o">:</span><span class="s2">"myVar"</span><span class="p">});</span>
-</pre></div>
+<div class="highlight highlight-javascript"><pre>Plc.readBool({name<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">"</span>MAIN.MyBoolVar<span class="pl-pds">"</span></span>, jvar<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">"</span>myVar<span class="pl-pds">"</span></span>});</pre></div>
 
 <p>A more complex example of reading multiple variables with a function executed after the request has successfully finished:</p>
 
-<div class="highlight"><pre><span class="nx">Plc</span><span class="p">.</span><span class="nx">sumReadReq</span><span class="p">({</span>
-    <span class="nx">items</span><span class="o">:</span> <span class="p">[</span>
-        <span class="p">{</span>
-            <span class="nx">name</span><span class="o">:</span> <span class="s1">'MAIN.Ramp1'</span><span class="p">,</span>
-            <span class="nx">jvar</span><span class="o">:</span> <span class="s1">'counter1.data'</span>
-        <span class="p">},{</span>
-            <span class="nx">name</span><span class="o">:</span> <span class="s1">'MAIN.Ramp2'</span><span class="p">,</span>
-            <span class="nx">jvar</span><span class="o">:</span> <span class="s1">'counter2.data'</span>
-        <span class="p">},{</span>
-            <span class="nx">name</span><span class="o">:</span> <span class="s1">'MAIN.RunningLight1'</span><span class="p">,</span>
-            <span class="nx">jvar</span><span class="o">:</span> <span class="s1">'runLight[0]'</span>
-        <span class="p">},{</span>
-            <span class="nx">name</span><span class="o">:</span> <span class="s1">'MAIN.RunningLight2'</span><span class="p">,</span>
-            <span class="nx">jvar</span><span class="o">:</span> <span class="s1">'runLight[1]'</span>
-        <span class="p">},{</span>
-            <span class="nx">name</span><span class="o">:</span> <span class="s1">'MAIN.RunningLight3'</span><span class="p">,</span>
-            <span class="nx">jvar</span><span class="o">:</span> <span class="s1">'runLight[2]'</span>
-        <span class="p">},{</span>
-            <span class="nx">name</span><span class="o">:</span> <span class="s1">'MAIN.RunningLight4'</span><span class="p">,</span>
-           <span class="nx">jvar</span><span class="o">:</span> <span class="s1">'runLight[3]'</span>
-        <span class="p">},{</span>
-            <span class="nx">name</span><span class="o">:</span> <span class="s1">'MAIN.RunningLight5'</span><span class="p">,</span>
-            <span class="nx">jvar</span><span class="o">:</span> <span class="s1">'runLight[4]'</span>
-        <span class="p">},{</span>
-            <span class="nx">name</span><span class="o">:</span> <span class="s1">'.In_SINT1'</span><span class="p">,</span>
-            <span class="nx">jvar</span><span class="o">:</span> <span class="s1">'field5.data'</span>
-        <span class="p">},{</span>
-            <span class="nx">name</span><span class="o">:</span> <span class="s1">'.In_INT1'</span><span class="p">,</span>
-            <span class="nx">jvar</span><span class="o">:</span> <span class="s1">'field6.data'</span>
-        <span class="p">}</span>
-    <span class="p">],</span>
-    <span class="nx">oc</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-        <span class="c1">//Set the background-color after reading data</span>
-        <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="mi">5</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
-            <span class="k">if</span> <span class="p">(</span><span class="nx">runLight</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="o">===</span> <span class="kc">true</span><span class="p">)</span> <span class="p">{</span>
-                <span class="nx">pageElem</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">style</span><span class="p">.</span><span class="nx">backgroundColor</span> <span class="o">=</span> <span class="s1">'green'</span><span class="p">;</span>
-            <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-                <span class="nx">pageElem</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">style</span><span class="p">.</span><span class="nx">backgroundColor</span> <span class="o">=</span> <span class="s1">'red'</span><span class="p">;</span>
-            <span class="p">}</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-<span class="p">});</span>
-</pre></div>
+<div class="highlight highlight-javascript"><pre>Plc.sumReadReq({
+    items<span class="pl-k">:</span> [
+        {
+            name<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>MAIN.Ramp1<span class="pl-pds">'</span></span>,
+            jvar<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>counter1.data<span class="pl-pds">'</span></span>
+        },{
+            name<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>MAIN.Ramp2<span class="pl-pds">'</span></span>,
+            jvar<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>counter2.data<span class="pl-pds">'</span></span>
+        },{
+            name<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>MAIN.RunningLight1<span class="pl-pds">'</span></span>,
+            jvar<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>runLight[0]<span class="pl-pds">'</span></span>
+        },{
+            name<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>MAIN.RunningLight2<span class="pl-pds">'</span></span>,
+            jvar<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>runLight[1]<span class="pl-pds">'</span></span>
+        },{
+            name<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>MAIN.RunningLight3<span class="pl-pds">'</span></span>,
+            jvar<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>runLight[2]<span class="pl-pds">'</span></span>
+        },{
+            name<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>MAIN.RunningLight4<span class="pl-pds">'</span></span>,
+           jvar<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>runLight[3]<span class="pl-pds">'</span></span>
+        },{
+            name<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>MAIN.RunningLight5<span class="pl-pds">'</span></span>,
+            jvar<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>runLight[4]<span class="pl-pds">'</span></span>
+        },{
+            name<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>.In_SINT1<span class="pl-pds">'</span></span>,
+            jvar<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>field5.data<span class="pl-pds">'</span></span>
+        },{
+            name<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>.In_INT1<span class="pl-pds">'</span></span>,
+            jvar<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>field6.data<span class="pl-pds">'</span></span>
+        }
+    ],
+    <span class="pl-en">oc</span>: <span class="pl-k">function</span>() {
+        <span class="pl-c">//Set the background-color after reading data</span>
+        <span class="pl-k">for</span> (<span class="pl-k">var</span> i <span class="pl-k">=</span> <span class="pl-c1">0</span>; i <span class="pl-k">&lt;</span> <span class="pl-c1">5</span>; i<span class="pl-k">++</span>) {
+            <span class="pl-k">if</span> (runLight[i] <span class="pl-k">===</span> <span class="pl-c1">true</span>) {
+                pageElem[i].<span class="pl-c1">style</span>.<span class="pl-c1">backgroundColor</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">'</span>green<span class="pl-pds">'</span></span>;
+            } <span class="pl-k">else</span> {
+                pageElem[i].<span class="pl-c1">style</span>.<span class="pl-c1">backgroundColor</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">'</span>red<span class="pl-pds">'</span></span>;
+            }
+        }
+    }
+});</pre></div>
 
 <p>Have a look at the manual for more information. TAME comes with various working examples including the PLC program, the best is to just try them out.</p>
 
 <h2>
-<a name="features" class="anchor" href="#features"><span class="octicon octicon-link"></span></a>Features</h2>
+<a id="features" class="anchor" href="#features" aria-hidden="true"><span class="octicon octicon-link"></span></a>Features</h2>
 
-<p>There are methods for read and write access to single variables, variable blocks, arrays and structures in the TwinCAT PLC. New in this version are the sum commands. They allow to read and write multiple PLC variables without the need of fixed addresses. Variables can now be accessed by name, a major improvement to TAME 2.</p>
+<p>There are methods for read and write access to single variables, variable blocks, arrays and structures in the TwinCAT PLC. New in TAME 3 are the sum commands. They allow to read and write multiple PLC variables without the need of fixed addresses. Variables can now be accessed by name, a major improvement to TAME 2.</p>
 
-<p>Supported data types are BOOL, BYTE, WORD, DWORD, USINT, SINT, UINT, INT, UDINT, DINT, TIME, TOD, DT, DATE, REAL, LREAL and STRING. There is also a special „type“ named INT1DP: It's an INT in the PLC, but in JavaScript the variable is of type float with 1 decimal place (i.e. a value of 568 in the PLC is 56.8 in JavaScript). The library provides built-in conversion of date and time values to formatted strings and REAL values can be rounded to a desired number of decimal places. For writing arrays and arrays of structures there is an option to choose only one array item to send to the PLC instead of the whole array. Another feature is the automatic structure padding for exchanging data with ARM-based devices (i.e. CX90xx), which have a 4-byte data alignment. Set the parameter „dataAlign4“ of the client definition to „true“ and you don't need to worry about the alignment of data structures.</p>
+<p>Supported data types are BOOL, BYTE, WORD, DWORD, USINT, SINT, UINT, INT, UDINT, DINT, TIME, TOD, DT, DATE, REAL, LREAL and STRING. There is also a special „type“ named INT1DP: It's an INT in the PLC, but in JavaScript the variable is of type float with 1 decimal place (i.e. a value of 568 in the PLC is 56.8 in JavaScript). The library provides built-in conversion of date and time values to formatted strings and REAL values can be rounded to a desired number of decimal places. For writing arrays and arrays of structures there is an option to choose only one array item to send to the PLC instead of the whole array. Another feature is the automatic structure padding for exchanging data with TwinCAT 2 and ARM-based devices (i.e. CX90xx) or with TwinCAT 3. TwinCAT 3 is supported with V3.4.</p>
 
 <h2>
-<a name="requirements" class="anchor" href="#requirements"><span class="octicon octicon-link"></span></a>Requirements</h2>
+<a id="requirements" class="anchor" href="#requirements" aria-hidden="true"><span class="octicon octicon-link"></span></a>Requirements</h2>
 
 <p>Requried is a running ADS WebService, look at the <a href="http://infosys.beckhoff.com">Beckhoff Infosys</a> for more information about the installation. And a TwinCAT PLC of course. ;-)</p>
 
 <h2>
-<a name="license" class="anchor" href="#license"><span class="octicon octicon-link"></span></a>License</h2>
+<a id="license" class="anchor" href="#license" aria-hidden="true"><span class="octicon octicon-link"></span></a>License</h2>
 
 <p>TAME is dual licensed under the MIT and the GPLv3 license. </p>
 
@@ -131,7 +129,7 @@
 
         <footer>
           TAME 3 is maintained by <a href="https://github.com/tomcx">tomcx</a><br>
-          This page was generated by <a href="http://pages.github.com">GitHub Pages</a>. Tactile theme by <a href="http://twitter.com/jasonlong">Jason Long</a>.
+          This page was generated by <a href="https://pages.github.com">GitHub Pages</a>. Tactile theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.
         </footer>
 
         
