@@ -24,8 +24,8 @@ Features
 --------
 
 There are methods for read and write access to single variables, variable blocks, arrays and structures in the TwinCAT 
-PLC. New in this version are the sum commands. They allow to read multiple PLC variables without the need of fixed 
-addresses. Variables can now be accessed by name, a major improvement to TAME 2.
+PLC. New in this version are the sum commands. They allow to read and write multiple PLC variables without the need of 
+fixed addresses. Variables can now be accessed by name, a major improvement to TAME 2.
 
 Supported data types are BOOL, BYTE, WORD, DWORD, USINT, SINT, UINT, INT, UDINT, DINT, TIME, TOD, DT, DATE, REAL, LREAL 
 and STRING. There is also a special „type“ named INT1DP: It's an INT in the PLC, but in JavaScript the variable is of 
