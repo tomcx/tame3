@@ -1,7 +1,7 @@
 /*!
- * TAME [TwinCAT ADS Made Easy] V3.3
+ * TAME [TwinCAT ADS Made Easy] V3.4
  * 
- * Copyright (c) 2009-2013 Thomas Schmidt; t.schmidt.p1 at freenet.de
+ * Copyright (c) 2009-2015 Thomas Schmidt; t.schmidt.p1 at freenet.de
  * 
  * Dual licensed under:
  *  MIT - http://www.opensource.org/licenses/mit-license
@@ -102,10 +102,12 @@ TAME.WebServiceClient = function (service) {
             DWORD: 4,
             UDINT: 4,
             DINT: 4,
-            TIME: 4,      //time base in PLC: milliseconds
-            TOD: 4,       //time base in PLC: milliseconds
-            DATE: 4,      //time base in PLC: seconds
-            DT: 4,        //time base in PLC: seconds
+            TIME: 4,          //time base in PLC: milliseconds
+            TOD: 4,           //time base in PLC: milliseconds
+            TIME_OF_DAY: 4,   //TwinCAT3, time base in PLC: milliseconds
+            DATE: 4,          //time base in PLC: seconds
+            DT: 4,            //time base in PLC: seconds
+            DATE_AND_TIME: 4, //TwinCAT3, time base in PLC: seconds
             POINTER: 4,
             REAL: 4,
             LREAL: 8,
@@ -159,8 +161,9 @@ TAME.WebServiceClient = function (service) {
             return ret;
         }()),
         
-        //4-byte data alignment, for a x86 set it to false, for a ARM to true
-        dataAlign4 = service.dataAlign4,
+        
+        //Alignment
+        alignment = 1,
         
         //Array for the request acknowledgement counter.
         currReq = [0],
@@ -191,16 +194,34 @@ TAME.WebServiceClient = function (service) {
     }
     
     //AMS Port Number of the Runtime System
-    if (typeof service.amsPort !== undefined) {
+    if (service.amsPort === undefined) {
         service.amsPort = '801';
         log('TAME library warning: AMS port number is not set! Default port 801 will be used.');
     } else if (typeof service.amsPort === 'number') {
         log('TAME library warning: AMS port number is not a string! Trying to convert it.');
         service.amsPort = service.amsPort.toString(10);
     } 
-    if (parseInt(service.amsPort, 10) < 801 || parseInt(service.amsPort, 10) > 804) {
-        log('TAME library error: AMS Port Number (' + parseInt(service.amsPort, 10) + ') is out of range!');
+    if (parseInt(service.amsPort, 10) < 801 || parseInt(service.amsPort, 10) > 891) {
+        log('TAME library error: AMS Port Number (' + parseInt(service.amsPort, 10) + ') is out of range (801-891)!');
         return;
+    }
+    
+    //Data alignment, x86 and TC2 uses a 1 byte alignment, for an ARM and TC2 set it to 4 and
+    //for TC3 generally to 8; 
+    //dataAlign4 is depricated
+    if (service.dataAlign4 === true) {
+        alignment = 4;
+    } else if (service.alignment === undefined) {
+        alignment = 1;
+    } else if (typeof service.alignment === 'string') {
+        alignment = parseInt(service.alignment, 10);
+    } else if (typeof service.alignment === 'number') {
+        alignment = service.alignment;
+    }
+    log('TAME library info: Data alignment set to: ' + alignment);
+    
+    if (alignment !== 1 && alignment !== 4 && alignment !== 8) {
+        log('TAME library warning: The value for the alignment should be 1, 4 or 8.');
     }
     
     //Global synchronous XMLHTTPRequests
@@ -1070,6 +1091,8 @@ TAME.WebServiceClient = function (service) {
                 case 'DATE':
                 case 'DT':
                 case 'TOD':
+                case 'TIME_OF_DAY':
+                case 'DATE_AND_TIME':
                     item.val = new Date();
                     break;
                 default:
@@ -1142,8 +1165,9 @@ TAME.WebServiceClient = function (service) {
             case 'LREAL':
                 val = checkValue(item, type);
                 val = floatToLreal(val);
-                bytes = numToByteArr(val.part2, len);
-                bytes = bytes.concat(numToByteArr(val.part1, len));
+                //Length set to 4, cause type length is 8 and there are 2 parts
+                bytes = numToByteArr(val.part2, 4);
+                bytes = bytes.concat(numToByteArr(val.part1, 4));
                 break;
             case 'DATE':
                 if (typeof item.val === 'object') {
@@ -1161,6 +1185,7 @@ TAME.WebServiceClient = function (service) {
                 bytes = numToByteArr(val, len);
                 break;
             case 'DT':
+            case 'DATE_AND_TIME':
                 if (typeof item.val === 'object') {
                     //Convert the date object in seconds since 1.1.1970 and
                     //set the time zone to UTC.
@@ -1172,6 +1197,7 @@ TAME.WebServiceClient = function (service) {
                 bytes = numToByteArr(val, len);
                 break;
             case 'TOD':
+            case 'TIME_OF_DAY':
                 if (typeof item.val === 'object') {
                     //Delete the date portion.
                     item.val.setYear(1970);
@@ -1796,6 +1822,7 @@ TAME.WebServiceClient = function (service) {
                 data = parsePlcString(dataString);
                 break;
             case 'TOD':
+            case 'TIME_OF_DAY':
                 data = parsePlcTod(dataString, format);
                 break;
             case 'TIME':
@@ -1803,6 +1830,7 @@ TAME.WebServiceClient = function (service) {
                 break;
             case 'DT':
             case 'DATE':
+            case 'DATE_AND_TIME':
                 data = parsePlcDate(dataString, format);
                 break;
             case 'EndStruct':
@@ -1863,21 +1891,20 @@ TAME.WebServiceClient = function (service) {
                 }
                 
                 //Set the length for calculating padding bytes
-                plen = len < 4 ? len : 4;
+                plen = len < alignment ? len : alignment;
                 
                 //Calculate the place of the element in the data string
                 if (adsReq.reqDescr.seq !== true) {
                     //If variable addresses are used.
                     startaddr = getIndexOffset(adsReq.reqDescr);
                     strAddr = item.addr - startaddr;
-                } else if (adsReq.reqDescr.dataAlign4 === true && plen > 1 && type !== 'STRING' && strAddr > 0) {
-                    //Compute the address for a 4-byte alignment in case of a structure.
+                } else if (adsReq.reqDescr.calcAlignment === true && plen > 1 && type !== 'EndStruct' && type !== 'STRING' && strAddr > 0) {
+                    //Compute the address for the alignment in case of a structure.
                     mod = strAddr % plen;
                     if (mod > 0) {
                         strAddr += plen - mod;
                     }
                 }
-                //console.log(strAddr + '; ' + type);
                 
                 //Slice the string and decode the data
                 dataSubString = dataString.substr(strAddr, len);
@@ -1941,11 +1968,11 @@ TAME.WebServiceClient = function (service) {
             data = subStringToData(subStrSlice, type, format);
             //Parse the name of the JavaScript variable and write the data to it
             parseVarName(jvar, data, dataObj, item.prefix, item.suffix);
-            
+
             subStrAddr += len;
         }
         
-        /*
+        /**
          * Parse the stucture definition and compute the data of
          * the substring.
          */
@@ -1955,17 +1982,17 @@ TAME.WebServiceClient = function (service) {
             
             /**
              * Function for adjusting the address of the data in the string
-             * if a 4-byte-alignment is used. 
+             * if an alignment is used. 
              */
             function checkAlignment() {
                 
                 var vlen, mod;
                 
-                if (dataAlign4 === true && type !== 'STRING') {
+                if (alignment > 1 && type !== 'STRING' && type !== 'EndStruct') {
                     //Set the length for calculating padding bytes
-                    vlen = len < 4 ? len : 4;
+                    vlen = len < alignment ? len : alignment;
                     
-                    //Compute the address for a 4-byte alignment.
+                    //Compute the address for the alignment.
                     if (vlen > 1 && subStrAddr > 0) {
                         mod = subStrAddr % vlen;
                         if (mod > 0) {
@@ -2028,11 +2055,11 @@ TAME.WebServiceClient = function (service) {
                     
                 }
             }
-            
+
              //Calculate the padding bytes at the end of the structure
-            if (dataAlign4 === true && vlenMax > 1 && type !== 'STRING') {
-                if (vlenMax > 4) {
-                    vlenMax = 4;
+            if (alignment > 1 && vlenMax > 1 && type !== 'STRING' && type !== 'EndStruct') {
+                if (vlenMax > alignment) {
+                    vlenMax = alignment;
                 }
                 mod = subStrAddr % vlenMax;
                 if (mod > 0) {
@@ -2090,8 +2117,7 @@ TAME.WebServiceClient = function (service) {
                         if (symTable[item.name].arrayDataType === 'USER') {
                             for (i = 0; i < arrayLength; i++) {
                                 parseStructure();
-                            }
-                            
+                            }                            
                         } else {
                             type = symTable[item.name].arrayDataType;
                             len = plcTypeLen[type];
@@ -2111,11 +2137,12 @@ TAME.WebServiceClient = function (service) {
                         dataObj = window;
                         data = subStringToData(dataSubString, type, format);
                         //Parse the name of the JavaScript variable and write the data to it
-                        parseVarName(item.jvar, data, dataObj, item.prefix, item.suffix);                  
+                        parseVarName(item.jvar, data, dataObj, item.prefix, item.suffix);
+                        
                 }
                //Set the next string address
                 strAddr += itemSize;
-
+                
             }
         } catch (e) {
             log('TAME library error: Parsing of SumReadRequest failed:' + e);
@@ -2239,6 +2266,8 @@ TAME.WebServiceClient = function (service) {
             case 'TOD':
             case 'DT':
             case 'DATE':
+            case 'DATE_AND_TIME':
+            case 'TIME_OF_DAY':
                 //Append the format string to the data type.
                 if (typeof args.format === 'string') {
                     type += '.' + args.format;
@@ -2402,26 +2431,26 @@ TAME.WebServiceClient = function (service) {
                         }
                         
                         //Add the length of the PLC variables
-                        if (dataAlign4 === true && vlen > 1 && defArr[0] !== 'STRING' && structByteLen > 0) {
+                        if (alignment > 1 && vlen > 1 && defArr[0] !== 'STRING' && structByteLen > 0) {
                             mod = structByteLen % vlen;
                             if (mod > 0) {
                                 structByteLen += vlen - mod;
                             }
                         }
-                        structByteLen += vlen; 
+                        structByteLen += vlen;
                     }
                     //Store the maximum length of the PLC variables
                     //for inserting padding bytes at the end of the structure.
-                    if (dataAlign4 === true && vlen > vlenMax && defArr[0] !== 'STRING') {
+                    if (alignment > 1 && vlen > vlenMax && defArr[0] !== 'STRING') {
                         vlenMax = vlen;
                     }
                 }
             }
             
             //Calculate the padding bytes at the end of the structure
-            if (dataAlign4 === true && vlenMax > 1 && defArr[0] !== 'STRING') {
-                if (vlenMax > 4) {
-                    vlenMax = 4;
+            if (alignment > 1 && vlenMax > 1 && defArr[0] !== 'STRING') {
+                if (vlenMax > alignment) {
+                    vlenMax = alignment;
                 }
                 mod = structByteLen % vlenMax;
                 if (mod > 0) {
@@ -2429,8 +2458,7 @@ TAME.WebServiceClient = function (service) {
                     structByteLen += endPadLen;
                 }
             }
-                
-            
+
             //Set the address offset and the length to 1 
             //if only one item should be sent.
             if (wrtOneOnly) {
@@ -2448,7 +2476,7 @@ TAME.WebServiceClient = function (service) {
                 debug: args.debug,
                 readLength: structByteLen * arrayLength,
                 seq: true,
-                dataAlign4: dataAlign4,
+                calcAlignment: true,
                 dataObj: dataObj,
                 sync: args.sync,
                 items: []
@@ -2525,7 +2553,7 @@ TAME.WebServiceClient = function (service) {
                 }
                 //Set an item as a mark at the end of the structure
                 //for inserting padding bytes in "writeReq" and "readReq" later.
-                if (dataAlign4 === true) {
+                if (alignment > 1) {
                     reqDescr.items[cnt]= {
                         type: 'EndStruct',
                         val: endPadLen
@@ -2558,6 +2586,8 @@ TAME.WebServiceClient = function (service) {
                 case 'TOD':
                 case 'DT':
                 case 'DATE':
+                case 'DATE_AND_TIME':
+                case 'TIME_OF_DAY':
                     //Append the format string to the data type.
                     if (typeof args.format === 'string') {
                         type += '.' + args.format;
@@ -2680,7 +2710,7 @@ TAME.WebServiceClient = function (service) {
             ocd: args.ocd,
             debug: args.debug,
             seq: true,
-            dataAlign4: dataAlign4,
+            calcAlignment: true,
             dataObj: dataObj,
             sync: args.sync,
             items: []
@@ -2797,13 +2827,12 @@ TAME.WebServiceClient = function (service) {
                 return;
             }
             
-            len = (plcTypeLen[type] < 4) ? plcTypeLen[type] : 4;
-            
-        
-            //4-byte padding within structures.
-            //reqDescr.dataAlign4 is only set in "writeStruct/readStruct" and
+            //Padding within structures.
+            //"calcAlignment" is only set in "writeStruct/readStruct" and
             //"writeArrayOfStruct/readArrayOfStruct"
-            if (reqDescr.dataAlign4 === true && len > 1 && type !== 'STRING' && pData.length > 0) {
+            len = (plcTypeLen[type] < alignment) ? plcTypeLen[type] : alignment;
+            
+            if (reqDescr.calcAlignment === true && len > 1  && type !== 'STRING' && type !== 'EndStruct' && pData.length > 0) {
                 mod = pData.length % len;
                 if (mod > 0) {
                     pcount = len - mod;
@@ -2812,7 +2841,7 @@ TAME.WebServiceClient = function (service) {
                     }
                 }
             }
-            
+
             //Convert data, depending on the type
             if (type === 'EndStruct') {
                 //Calculate the padding bytes at the end of the structure
@@ -2822,7 +2851,7 @@ TAME.WebServiceClient = function (service) {
                 }
             } else {
                 //Convert the data to a byte array.
-                bytes = dataToByteArray(item, type, format, len);
+                bytes = dataToByteArray(item, type, format, plcTypeLen[type]);
                 //Summarise the data.     
                 pData = pData.concat(bytes);
             }
@@ -2898,7 +2927,7 @@ TAME.WebServiceClient = function (service) {
                 
                 if (reqDescr.seq === true) {
                     //Add the length of the PLC variables if continuously addressing is used.
-                    if (reqDescr.dataAlign4 === true && vlen > 1 && type !== 'STRING' && reqDescr.readLength > 0) {
+                    if (reqDescr.calcAlignment === true && vlen > 1 && type !== 'EndStruct' && type !== 'STRING' && reqDescr.readLength > 0) {
                         mod = reqDescr.readLength % vlen;
                         if (mod > 0) {
                             reqDescr.readLength += vlen - mod;
@@ -3047,17 +3076,17 @@ TAME.WebServiceClient = function (service) {
             var j, defArr, lenArrElem, lastDefArr, mod, elem, subBuffer = [];
             
             /**
-             * Function for adding padding bytes if a 4-byte-alignment is used. 
+             * Function for adding padding bytes if an alignment is used. 
              */
             function checkAlignment() {
                 
                 var vlen, k;
 
-                if (dataAlign4 === true && type !== 'STRING') {
+                if (alignment > 1 && type !== 'STRING' && type !== 'EndStruct') {
                     //Set the length for calculating padding bytes
-                    vlen = len < 4 ? len : 4;
+                    vlen = len < alignment ? len : alignment;
                     
-                    //Compute the padding bytes for a 4-byte alignment.
+                    //Compute the padding bytes for the alignment.
                     if (vlen > 1 && subBuffer.length > 0) {
                         mod = subBuffer.length % vlen;
                         if (mod > 0) {
@@ -3084,6 +3113,7 @@ TAME.WebServiceClient = function (service) {
                 
                     try {
                         defArr = item.def[elem].split('.');
+
                         if (defArr[0] === 'ARRAY') {
                             lenArrElem = parseInt(defArr[1], 10);
                             lastDefArr = defArr.length - 1;
@@ -3098,10 +3128,14 @@ TAME.WebServiceClient = function (service) {
                                         format = defArr.slice(3).join('.');
                                     }
                                 }
-    
+
                                 //Add index in case of an array of struct
                                 if (i !== null) {
-                                    dummy.val = item.val[i][elem][j];
+                                    if (defArr[lastDefArr] === 'SP') {  
+                                        dummy.val = item.val[i][elem + j];
+                                    } else {
+                                        dummy.val = item.val[i][elem][j];
+                                    }
                                 } else {
                                     dummy.val = item.val[elem][j];
                                 }
@@ -3137,7 +3171,7 @@ TAME.WebServiceClient = function (service) {
             }
             
             //Calculate the padding bytes at the end of the structure.
-            if (dataAlign4 === true && vlenMax > 1 && defArr[0] !== 'STRING') {
+            if (alignment > 1 && vlenMax > 1 && defArr[0] !== 'STRING' && defArr[0] !== 'EndStruct') {
                 mod = subBuffer.length % vlenMax;
                 if (mod > 0) {
                     pcount = vlenMax - mod;
@@ -3151,7 +3185,7 @@ TAME.WebServiceClient = function (service) {
             reqBuffer = reqBuffer.concat(subBuffer);  
         }
                
-        //Preset the read lenth with the number of byte for error codes.
+        //Preset the read length with the number of byte for error codes.
         reqDescr.readLength = listlen * 4;
     
         //Write the general command information to the Request Buffer
@@ -3609,9 +3643,11 @@ TAME.WebServiceClient = function (service) {
                 
                 //Get name and type.
                 nameAndType = dataString.substring(strAddr + nameOffs, (strAddr + infoLen)).split(String.fromCharCode(0));
+                name = nameAndType[0].toUpperCase();
+                
                 
                 //Create an entry.
-                symTable[nameAndType[0]] = {
+                symTable[name] = {
                     typeString: nameAndType[1],
                     indexGroup: subStringToData(dataString.substr(strAddr + igOffs, 4), 'DWORD'),                    
                     indexOffset: subStringToData(dataString.substr(strAddr + ioOffs, 4), 'DWORD'),                   
@@ -3624,34 +3660,34 @@ TAME.WebServiceClient = function (service) {
                 if (typeArr[0] === 'ARRAY') {
                     
                     //Type
-                    symTable[nameAndType[0]].type = typeArr[0];
+                    symTable[name].type = typeArr[0];
                     
                     //Array Length
                     arrayLength = typeArr[1].substring(1, typeArr[1].length - 1);
                     arrayLength = arrayLength.split('..');
                     arrayLength = parseInt(arrayLength[1], 10) - parseInt(arrayLength[0], 10) + 1;
-                    symTable[nameAndType[0]].arrayLength = arrayLength;
+                    symTable[name].arrayLength = arrayLength;
                     
                     
                     //Data type of the array.
                     type = typeArr[3].split('(');                    
                     if (type[1] !== undefined) {
                         type[1] = type[1].substr(0, type[1].length - 1);
-                        symTable[nameAndType[0]].fullType = typeArr[0] + '.' + arrayLength + '.' + type[0] + '.' + type[1];
-                        symTable[nameAndType[0]].stringLength = parseInt(type[1], 10);
+                        symTable[name].fullType = typeArr[0] + '.' + arrayLength + '.' + type[0] + '.' + type[1];
+                        symTable[name].stringLength = parseInt(type[1], 10);
                     } else {
-                        symTable[nameAndType[0]].fullType = typeArr[0] + '.' + arrayLength + '.' + type[0];
+                        symTable[name].fullType = typeArr[0] + '.' + arrayLength + '.' + type[0];
                     }
                     
                     //Item length
-                    symTable[nameAndType[0]].itemSize = symTable[nameAndType[0]].size / arrayLength;
+                    symTable[name].itemSize = symTable[name].size / arrayLength;
                     
                     //Check if variable is a user defined data type,
-                    symTable[nameAndType[0]].arrayDataType = 'USER';
+                    symTable[name].arrayDataType = 'USER';
                     for (elem in plcTypeLen) {
                         if (plcTypeLen.hasOwnProperty(elem)) {
                             if (type[0] === elem) {
-                                symTable[nameAndType[0]].arrayDataType = type[0];
+                                symTable[name].arrayDataType = type[0];
                             }
                         }
                     }
@@ -3662,19 +3698,19 @@ TAME.WebServiceClient = function (service) {
                     if (type[1] !== undefined) {
                         //String
                         type[1] = type[1].substr(0, type[1].length - 1);
-                        symTable[nameAndType[0]].fullType = type[0] + '.' + type[1];
-                        symTable[nameAndType[0]].stringLength = parseInt(type[1], 10);
+                        symTable[name].fullType = type[0] + '.' + type[1];
+                        symTable[name].stringLength = parseInt(type[1], 10);
                     } else {
-                        symTable[nameAndType[0]].fullType = type[0];
+                        symTable[name].fullType = type[0];
                     }
                     
                     //Check if variable is a user defined data type,
-                    symTable[nameAndType[0]].type = 'USER';
+                    symTable[name].type = 'USER';
                     
                     for (elem in plcTypeLen) {
                         if (plcTypeLen.hasOwnProperty(elem)) {
                             if (type[0] === elem) {
-                                symTable[nameAndType[0]].type = type[0];
+                                symTable[name].type = type[0];
                             }
                         }
                     }

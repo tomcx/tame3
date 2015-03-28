@@ -1,5 +1,6 @@
 /**
  *  @author T.Schmidt, 14.06.2012
+ *  Last change 27.03.2015
  *  Very basic example using TAME 3.
  */
 
@@ -163,13 +164,10 @@ window.onload = function() {
                     name: '.DATE_Test',
                     jvar: 'field12.data',
                     format:'#WEEKDAY#, #DD#.#MM#.#YYYY'
-                },{
+                },/*{
                     name: '.DATE_Test',
                     jvar: 'field12.data'
-                },{
-                    name: '.DATE_Test',
-                    jvar: 'field12.data'
-                },{
+                },*/{
                     name: '.In_REAL',
                     jvar: 'field13.data',
                     dp: 2

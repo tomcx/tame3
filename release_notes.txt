@@ -1,3 +1,18 @@
+                       TAME V3.4 Release Notes 
+                       ------------------------
+
+- Some changes made for TwinCAT 3 compatibility (symbol table, alignment).
+
+- Changed API: The client parameter "dataAlign4" is depricated, for setting the
+  value for the data alignment there is now a new parameter named "alignment".
+  
+- Bugfix: LREAL values were written with 16 bytes length, fixed.
+
+- Bugfix: The "SP" parameter was not recognized if structures were written with
+  a SumWriteRequest, fixed.
+
+
+
                        TAME V3.3 Release Notes 
                        ------------------------
 
