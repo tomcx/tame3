@@ -1,5 +1,5 @@
 /*!
- * TAME [TwinCAT ADS Made Easy] V3.4
+ * TAME [TwinCAT ADS Made Easy] V3.5 alpha
  * 
  * Copyright (c) 2009-2015 Thomas Schmidt; t.schmidt.p1 at freenet.de
  * 
@@ -77,6 +77,7 @@ TAME.WebServiceClient = function (service) {
         indexGroups = {
             M: 16416,    //PLC memory range(%M field), READ_M - WRITE_M
             MX: 16417,   //PLC memory range(%MX field), READ_MX - WRITE_MX
+            DB: 16448,   //Data range
             I: 61472,    //PLC process diagram of the physical inputs(%I field), READ_I - WRITE_I
             IX: 61473,   //PLC process diagram of the physical inputs(%IX field), READ_IX - WRITE_IX
             Q: 61488,    //PLC process diagram of the physical outputs(%Q field), READ_Q - WRITE_Q
@@ -471,6 +472,13 @@ TAME.WebServiceClient = function (service) {
                     //should be sent.
                     if (typeof req.addrOffset === 'number') {
                         indexOffset += req.addrOffset;
+                    }
+                    //Bit offset is for the access to a FB parameter or an element
+                    //of a structure.
+                    if (typeof req.bitOffset === 'string') {
+                        indexOffset += parseInt(req.bitOffset, 10) / 8;
+                    } else if (typeof req.bitOffset === 'number') {
+                        indexOffset += req.bitOffset / 8;
                     }
                 } catch(e) {
                     log('TAME library error: Can\'t get the IndexOffset for this request!');
@@ -2294,6 +2302,7 @@ TAME.WebServiceClient = function (service) {
             readLength: len,
             debug: args.debug,
             sync: args.sync,
+            bitOffset: args.offs,
             seq: true,
             items: [{
                 val: args.val,
@@ -2479,6 +2488,7 @@ TAME.WebServiceClient = function (service) {
                 calcAlignment: true,
                 dataObj: dataObj,
                 sync: args.sync,
+                bitOffset: args.offs,
                 items: []
             };
             
@@ -2713,6 +2723,7 @@ TAME.WebServiceClient = function (service) {
             calcAlignment: true,
             dataObj: dataObj,
             sync: args.sync,
+            bitOffset: args.offs,
             items: []
         };
         
@@ -2994,6 +3005,11 @@ TAME.WebServiceClient = function (service) {
             len = symTable[item.name].size;
             
             reqDescr.readLength += len;
+            
+            //Bit offset
+            if (item.offs !== undefined) {
+                item.bitOffset = item.offs;
+            } 
          
             //Build the request buffer.
             //The function dataToByteArray expects an item with a value for
@@ -3205,6 +3221,11 @@ TAME.WebServiceClient = function (service) {
             
             //Length of the data type.
             len = symTable[item.name].size;
+            
+            //Bit offset
+            if (item.offs !== undefined) {
+                item.bitOffset = item.offs;
+            } 
          
             //Build the request buffer.
             //The function dataToByteArray expects an item with a value for
