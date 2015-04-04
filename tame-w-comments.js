@@ -3751,6 +3751,121 @@ TAME.WebServiceClient = function (service) {
     }
     
     
+    /**
+    * Get the symbol-file (*.tpy) from the server and create
+    * an object (symTable) with the symbol names as the properties. 
+    */    
+    function getSymFile() {
+  
+        var xmlHttpReq = createXMLHttpReq(),
+        symbolXmlArray = [],
+        symFile, name, allSymbols, typeArr, arrayLength, type, elem;
+        
+        //Synchronous HTTPRequest
+        xmlHttpReq.open('GET', service.symFileUrl, false);
+        xmlHttpReq.setRequestHeader('Content-Type', 'text/xml');
+        xmlHttpReq.send(null);
+
+        log('TAME library info: Start reading the TPY file.');
+
+        if (typeof DOMParser == 'function') {
+            try {
+                symFile = (new DOMParser()).parseFromString(xmlHttpReq.responseText, "text/xml");
+                allSymbols = symFile.getElementsByTagName('Symbols')[0];
+            
+                //Create an Array of the Elements with "Symbol" as tag name.
+                symbolXmlArray = allSymbols.getElementsByTagName('Symbol');
+                
+                //Get the name of the symbol and create an object property with it.
+                //symTable is declared outside in the constructor function.
+                for (var i = 0; i < symbolXmlArray.length; i++) {
+                    name = symbolXmlArray[i].getElementsByTagName('Name')[0].childNodes[0].nodeValue.toUpperCase();
+                    symTable[name] = {
+                        typeString: symbolXmlArray[i].getElementsByTagName('Type')[0].childNodes[0].nodeValue.toUpperCase(),
+                        indexGroup: parseInt(symbolXmlArray[i].getElementsByTagName('IGroup')[0].childNodes[0].nodeValue, 10),
+                        indexOffset: parseInt(symbolXmlArray[i].getElementsByTagName('IOffset')[0].childNodes[0].nodeValue, 10),
+                        bitSize: parseInt(symbolXmlArray[i].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue, 10)
+                    };
+                    symTable[name].size = (symTable[name].bitSize >= 8) ? symTable[name].bitSize/8 : symTable[name].bitSize;
+                
+                
+                     //Set additional information.
+                    typeArr = symTable[name].typeString.split(" ");
+                    
+                    if (typeArr[0] === 'ARRAY') {
+                        
+                        //Type
+                        symTable[name].type = typeArr[0];
+                        
+                        //Array Length
+                        arrayLength = typeArr[1].substring(1, typeArr[1].length - 1);
+                        arrayLength = arrayLength.split('..');
+                        arrayLength = parseInt(arrayLength[1], 10) - parseInt(arrayLength[0], 10) + 1;
+                        symTable[name].arrayLength = arrayLength;
+                        
+                        
+                        //Data type of the array.
+                        type = typeArr[3].split('(');                    
+                        if (type[1] !== undefined) {
+                            type[1] = type[1].substr(0, type[1].length - 1);
+                            symTable[name].fullType = typeArr[0] + '.' + arrayLength + '.' + type[0] + '.' + type[1];
+                            symTable[name].stringLength = parseInt(type[1], 10);
+                        } else {
+                            symTable[name].fullType = typeArr[0] + '.' + arrayLength + '.' + type[0];
+                        }
+                        
+                        //Item length
+                        symTable[name].itemSize = symTable[name].size / arrayLength;
+                        
+                        //Check if variable is a user defined data type,
+                        symTable[name].arrayDataType = 'USER';
+                        for (elem in plcTypeLen) {
+                            if (plcTypeLen.hasOwnProperty(elem)) {
+                                if (type[0] === elem) {
+                                    symTable[name].arrayDataType = type[0];
+                                }
+                            }
+                        }
+    
+                    } else {
+                        type = typeArr[0].split('(');
+                        
+                        if (type[1] !== undefined) {
+                            //String
+                            type[1] = type[1].substr(0, type[1].length - 1);
+                            symTable[name].fullType = type[0] + '.' + type[1];
+                            symTable[name].stringLength = parseInt(type[1], 10);
+                        } else {
+                            symTable[name].fullType = type[0];
+                        }
+                        
+                        //Check if variable is a user defined data type,
+                        symTable[name].type = 'USER';
+                        
+                        for (elem in plcTypeLen) {
+                            if (plcTypeLen.hasOwnProperty(elem)) {
+                                if (type[0] === elem) {
+                                    symTable[name].type = type[0];
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                symTableOk = true;
+                   
+                log('TAME library info: End of reading the TPY file.');
+                log('TAME library info: Symbol table ready.');
+                    
+            } catch(e) {
+                log('TAME library error: An error occured while parsing the symbol file:');
+                log(e);
+            }
+        } else {
+                log('TAME library error: Can\'t parse the symbol file cause your brower does not provide a DOMParser function.');
+        }
+    };
+    
     //----------------------------Test--------------------------------
     //log('TAME library info: Reading the PLC state ...');
     //instance.readAdsState({sync:true});
@@ -3767,15 +3882,20 @@ TAME.WebServiceClient = function (service) {
     if (service.dontFetchSymbols === true) {
         log('TAME library info: Reading of the UploadInfo deactivated. Symbol Table could not be created.');
     } else {
-        log('TAME library info: Start fetching the symbols from PLC.');
-        //Get the UploadInfo.
-        try {
-            getUploadInfo();
-        } catch (e) {
-            log('TAME library error: Could\'nt fetch the symbol information from the PLC:' + e);
-            return;
+        if (typeof service.symFileUrl == 'string') {
+            log('TAME library message: Fetching the TPY file from the webserver.');
+            //Get the symbol file and parse it.
+            getSymFile();
+        } else {
+            log('TAME library info: Start fetching the symbols from PLC.');
+            //Get the UploadInfo.
+            try {
+                getUploadInfo();
+            } catch (e) {
+                log('TAME library error: Could\'nt fetch the symbol information from the PLC:' + e);
+                return;
+            }
         }
-        
     }
     
 };
