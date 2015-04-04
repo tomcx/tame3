@@ -172,6 +172,8 @@ TAME.WebServiceClient = function (service) {
         //The Symbol Table for accessing variables per name.
         symTable = {},
         symTableOk = false,
+        dataTypeTable = {},
+        dataTypeTableOk = false,
         
         //Variables of the UploadInfo 
         symbolCount = 0, uploadLength = 0;
@@ -3366,6 +3368,14 @@ TAME.WebServiceClient = function (service) {
     
     
     /**
+     *  Prints the data type table to the console.
+     */
+    this.logDataTypes = function() {
+        log(dataTypeTable);
+    };
+    
+    
+    /**
      * Converts the Symbol Table to a JSON string.
      * 
      * @return {Array}  jstr    The Symbol Table as a JSON string . 
@@ -3712,6 +3722,9 @@ TAME.WebServiceClient = function (service) {
                             }
                         }
                     }
+                    if (symTable[name].arrayDataType === 'USER') {
+                        symTable[name].userDefinedType = type[0];
+                    }
 
                 } else {
                     type = typeArr[0].split('(');
@@ -3727,13 +3740,15 @@ TAME.WebServiceClient = function (service) {
                     
                     //Check if variable is a user defined data type,
                     symTable[name].type = 'USER';
-                    
                     for (elem in plcTypeLen) {
                         if (plcTypeLen.hasOwnProperty(elem)) {
                             if (type[0] === elem) {
                                 symTable[name].type = type[0];
                             }
                         }
+                    }
+                    if (symTable[name].type === 'USER') {
+                        symTable[name].userDefinedType = type[0];
                     }
                 }
                 
@@ -3758,7 +3773,7 @@ TAME.WebServiceClient = function (service) {
     function getSymFile() {
   
         var xmlHttpReq = createXMLHttpReq(),
-        symbolXmlArray = [],
+        symbolArray = [],
         symFile, name, allSymbols, typeArr, arrayLength, type, elem;
         
         //Synchronous HTTPRequest
@@ -3767,24 +3782,36 @@ TAME.WebServiceClient = function (service) {
         xmlHttpReq.send(null);
 
         log('TAME library info: Start reading the TPY file.');
-
+        
+        
+        //Create a DOM object from XML
         if (typeof DOMParser == 'function') {
             try {
                 symFile = (new DOMParser()).parseFromString(xmlHttpReq.responseText, "text/xml");
-                allSymbols = symFile.getElementsByTagName('Symbols')[0];
-            
+            } catch (e) {
+                log('TAME library error: Creating a DOM object from TPY failed:' + e);
+                return;
+            }
+        } else {
+            log('TAME library error: Can\'t parse the symbol file cause your brower does not provide a DOMParser function.');
+        }
+
+        //Create the symbol table
+        if (true) {
+            try {           
                 //Create an Array of the Elements with "Symbol" as tag name.
-                symbolXmlArray = allSymbols.getElementsByTagName('Symbol');
+                allSymbols = symFile.getElementsByTagName('Symbols')[0];
+                symbolArray = allSymbols.getElementsByTagName('Symbol');
                 
                 //Get the name of the symbol and create an object property with it.
                 //symTable is declared outside in the constructor function.
-                for (var i = 0; i < symbolXmlArray.length; i++) {
-                    name = symbolXmlArray[i].getElementsByTagName('Name')[0].childNodes[0].nodeValue.toUpperCase();
+                for (var i = 0; i < symbolArray.length; i++) {
+                    name = symbolArray[i].getElementsByTagName('Name')[0].childNodes[0].nodeValue.toUpperCase();
                     symTable[name] = {
-                        typeString: symbolXmlArray[i].getElementsByTagName('Type')[0].childNodes[0].nodeValue.toUpperCase(),
-                        indexGroup: parseInt(symbolXmlArray[i].getElementsByTagName('IGroup')[0].childNodes[0].nodeValue, 10),
-                        indexOffset: parseInt(symbolXmlArray[i].getElementsByTagName('IOffset')[0].childNodes[0].nodeValue, 10),
-                        bitSize: parseInt(symbolXmlArray[i].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue, 10)
+                        typeString: symbolArray[i].getElementsByTagName('Type')[0].childNodes[0].nodeValue.toUpperCase(),
+                        indexGroup: parseInt(symbolArray[i].getElementsByTagName('IGroup')[0].childNodes[0].nodeValue, 10),
+                        indexOffset: parseInt(symbolArray[i].getElementsByTagName('IOffset')[0].childNodes[0].nodeValue, 10),
+                        bitSize: parseInt(symbolArray[i].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue, 10)
                     };
                     symTable[name].size = (symTable[name].bitSize >= 8) ? symTable[name].bitSize/8 : symTable[name].bitSize;
                 
@@ -3826,6 +3853,9 @@ TAME.WebServiceClient = function (service) {
                                 }
                             }
                         }
+                        if (symTable[name].arrayDataType === 'USER') {
+                            symTable[name].userDefinedType = type[0];
+                        }
     
                     } else {
                         type = typeArr[0].split('(');
@@ -3841,7 +3871,6 @@ TAME.WebServiceClient = function (service) {
                         
                         //Check if variable is a user defined data type,
                         symTable[name].type = 'USER';
-                        
                         for (elem in plcTypeLen) {
                             if (plcTypeLen.hasOwnProperty(elem)) {
                                 if (type[0] === elem) {
@@ -3849,22 +3878,71 @@ TAME.WebServiceClient = function (service) {
                                 }
                             }
                         }
+                        if (symTable[name].type === 'USER') {
+                            symTable[name].userDefinedType = type[0];
+                        }
                     }
                 }
                 
                 symTableOk = true;
                    
-                log('TAME library info: End of reading the TPY file.');
                 log('TAME library info: Symbol table ready.');
                     
             } catch(e) {
                 log('TAME library error: An error occured while parsing the symbol file:');
                 log(e);
             }
-        } else {
-                log('TAME library error: Can\'t parse the symbol file cause your brower does not provide a DOMParser function.');
         }
+        
+        
+        //Get the data types.
+        var allDataTypes, dataTypeArray, subItemArray, sName ;
+        
+        if (true) {
+            try {            
+                //Create an Array of the Elements with "DataType" as tag name.
+                allDataTypes = symFile.getElementsByTagName('DataTypes')[0];
+                dataTypeArray = allDataTypes.getElementsByTagName('DataType');
+                
+                //Get the name of the data type and create an object property with it.
+                //dataTypeTable is declared outside in the constructor function.
+                for (var i = 0; i < dataTypeArray.length; i++) {
+                    name = dataTypeArray[i].getElementsByTagName('Name')[0].childNodes[0].nodeValue.toUpperCase();
+                    name = name.split(" ")[0];
+                    if (name !== 'ARRAY') {
+                        dataTypeTable[name] = {
+                            //type: dataTypeArray[i].getElementsByTagName('Type')[0].childNodes[0].nodeValue.toUpperCase(),
+                            bitSize: parseInt(dataTypeArray[i].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue, 10),
+                            subItems: {}
+                        };
+                        //Get the SubItems
+                        subItemArray = dataTypeArray[i].getElementsByTagName('SubItem');
+                        
+                        for (var j = 0; j < subItemArray.length; j++) {
+                            sName = subItemArray[j].getElementsByTagName('Name')[0].childNodes[0].nodeValue.toUpperCase();
+                            dataTypeTable[name].subItems[sName] = {
+                                type: subItemArray[j].getElementsByTagName('Type')[0].childNodes[0].nodeValue.toUpperCase(),
+                                bitSize: parseInt(subItemArray[j].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue, 10),
+                                bitOffset: parseInt(subItemArray[j].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue, 10)
+                            };
+                        }
+                    }
+                    
+                }
+                dataTypeTableOk = true;       
+
+                log('TAME library info: End of reading the data types from the TPY file.');
+   
+            } catch(e) {
+                log('TAME library error: An error occured while creating the data type information:');
+                log(e);
+            }
+        }
+        
     };
+    
+    
+    
     
     //----------------------------Test--------------------------------
     //log('TAME library info: Reading the PLC state ...');
