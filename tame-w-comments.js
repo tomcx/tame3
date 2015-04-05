@@ -441,7 +441,7 @@ TAME.WebServiceClient = function (service) {
      * @return {Number} indexOffset The IndexOffset for the ADS request. 
      */
     function getIndexOffset(req) {
-        var indexOffset, numString = '', mxaddr = [];
+        var indexOffset, numString = '', mxaddr = [], i;
         
         if (req.addr) {
             //Try to get the IndexOffset by address
@@ -469,22 +469,48 @@ TAME.WebServiceClient = function (service) {
             //Try to get the IndexOffset by name
             if (typeof req.name === 'string') {
                 try {
+                    //Get the offset from the symbol table
                     indexOffset = symTable[req.name].indexOffset;
                     //Address offset is used if only one item of an array
                     //should be sent.
                     if (typeof req.addrOffset === 'number') {
                         indexOffset += req.addrOffset;
                     }
-                    //Bit offset is for the access to a FB parameter or an element
-                    //of a structure.
-                    if (typeof req.bitOffset === 'string') {
-                        indexOffset += parseInt(req.bitOffset, 10) / 8;
-                    } else if (typeof req.bitOffset === 'number') {
-                        indexOffset += req.bitOffset / 8;
+                    //Add a manually defined bit offset.
+                    if (typeof req.offs === 'string') {
+                        indexOffset += parseInt(req.offs, 10) / 8;
+                    } else if (typeof req.offs === 'number') {
+                        indexOffset += req.offs / 8;
                     }
+                    var dataType, itemArray, i;
+                    //Get the bit offset if a sub item is given.
+                    if (typeof req.subitem === 'string') {
+                        log(req.subitem);
+                        req.subitem = req.subitem.toUpperCase();
+                        log(req.subitem);
+                        dataType = symTable[req.name].dataType;
+                        log(dataType);
+                        itemArray = req.subitem.split('.');
+                        log(itemArray);
+                        log(indexOffset);
+                        for (i = 0; i < itemArray.length; i++) {
+                            //bitOffset = dataTypeTable[dataType][itemArray[i]].bitOffset;
+                            if (typeof  dataTypeTable[dataType].subItems[itemArray[i]].bitOffset === 'number') {
+                                indexOffset += dataTypeTable[dataType].subItems[itemArray[i]].bitOffset;
+                                log(dataTypeTable[dataType].subItems[itemArray[i]].bitOffset);
+                            }
+                            
+                            log(indexOffset);
+                            if (dataTypeTable[dataType].type !== undefined) {
+                                dateType = dataTypeTable[dataType].type;
+                            }
+                            log(dataType);
+                        }                       
+                    }
+                    
                 } catch(e) {
                     log('TAME library error: Can\'t get the IndexOffset for this request!');
-                    log('TAME library error: Please check the variable name.');
+                    log('TAME library error: Please check the variable definition (name/offs/subitem).');
                     log(e);
                     log(req);
                     return;
@@ -2304,7 +2330,7 @@ TAME.WebServiceClient = function (service) {
             readLength: len,
             debug: args.debug,
             sync: args.sync,
-            bitOffset: args.offs,
+            offs: args.offs,
             seq: true,
             items: [{
                 val: args.val,
@@ -2490,7 +2516,7 @@ TAME.WebServiceClient = function (service) {
                 calcAlignment: true,
                 dataObj: dataObj,
                 sync: args.sync,
-                bitOffset: args.offs,
+                offs: args.offs,
                 items: []
             };
             
@@ -2725,7 +2751,7 @@ TAME.WebServiceClient = function (service) {
             calcAlignment: true,
             dataObj: dataObj,
             sync: args.sync,
-            bitOffset: args.offs,
+            offs: args.offs,
             items: []
         };
         
@@ -3008,11 +3034,6 @@ TAME.WebServiceClient = function (service) {
             
             reqDescr.readLength += len;
             
-            //Bit offset
-            if (item.offs !== undefined) {
-                item.bitOffset = item.offs;
-            } 
-         
             //Build the request buffer.
             //The function dataToByteArray expects an item with a value for
             //converting, so a dummy object is used here.
@@ -3223,11 +3244,6 @@ TAME.WebServiceClient = function (service) {
             
             //Length of the data type.
             len = symTable[item.name].size;
-            
-            //Bit offset
-            if (item.offs !== undefined) {
-                item.bitOffset = item.offs;
-            } 
          
             //Build the request buffer.
             //The function dataToByteArray expects an item with a value for
@@ -3723,7 +3739,7 @@ TAME.WebServiceClient = function (service) {
                         }
                     }
                     if (symTable[name].arrayDataType === 'USER') {
-                        symTable[name].userDefinedType = type[0];
+                        symTable[name].dataType = type[0];
                     }
 
                 } else {
@@ -3748,7 +3764,7 @@ TAME.WebServiceClient = function (service) {
                         }
                     }
                     if (symTable[name].type === 'USER') {
-                        symTable[name].userDefinedType = type[0];
+                        symTable[name].dataType = type[0];
                     }
                 }
                 
@@ -3854,7 +3870,7 @@ TAME.WebServiceClient = function (service) {
                             }
                         }
                         if (symTable[name].arrayDataType === 'USER') {
-                            symTable[name].userDefinedType = type[0];
+                            symTable[name].dataType = type[0];
                         }
     
                     } else {
@@ -3879,7 +3895,7 @@ TAME.WebServiceClient = function (service) {
                             }
                         }
                         if (symTable[name].type === 'USER') {
-                            symTable[name].userDefinedType = type[0];
+                            symTable[name].dataType = type[0];
                         }
                     }
                 }
@@ -3923,8 +3939,11 @@ TAME.WebServiceClient = function (service) {
                             dataTypeTable[name].subItems[sName] = {
                                 type: subItemArray[j].getElementsByTagName('Type')[0].childNodes[0].nodeValue.toUpperCase(),
                                 bitSize: parseInt(subItemArray[j].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue, 10),
-                                bitOffset: parseInt(subItemArray[j].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue, 10)
                             };
+                            if (subItemArray[j].getElementsByTagName('BitOffs')[0] !== undefined) {
+                                dataTypeTable[name].subItems[sName].bitOffset = parseInt(subItemArray[j].getElementsByTagName('BitOffs')[0].childNodes[0].nodeValue, 10);
+                            }
+                            
                         }
                     }
                     
