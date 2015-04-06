@@ -3937,13 +3937,80 @@ TAME.WebServiceClient = function (service) {
                         for (var j = 0; j < subItemArray.length; j++) {
                             sName = subItemArray[j].getElementsByTagName('Name')[0].childNodes[0].nodeValue.toUpperCase();
                             dataTypeTable[name].subItems[sName] = {
-                                type: subItemArray[j].getElementsByTagName('Type')[0].childNodes[0].nodeValue.toUpperCase(),
+                                typeString: subItemArray[j].getElementsByTagName('Type')[0].childNodes[0].nodeValue.toUpperCase(),
                                 bitSize: parseInt(subItemArray[j].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue, 10),
                             };
                             if (subItemArray[j].getElementsByTagName('BitOffs')[0] !== undefined) {
                                 dataTypeTable[name].subItems[sName].bitOffset = parseInt(subItemArray[j].getElementsByTagName('BitOffs')[0].childNodes[0].nodeValue, 10);
                             }
-                            
+                            dataTypeTable[name].subItems[sName].size = (dataTypeTable[name].subItems[sName].bitSize >= 8) ? dataTypeTable[name].subItems[sName].bitSize/8 : dataTypeTable[name].subItems[sName].bitSize;
+                
+                            //Set additional information
+                            typeArr = dataTypeTable[name].subItems[sName].typeString.split(" ");
+                    
+                            if (typeArr[0] === 'ARRAY') {
+                                
+                                //Type
+                                dataTypeTable[name].subItems[sName].type = typeArr[0];
+                                
+                                //Array Length
+                                arrayLength = typeArr[1].substring(1, typeArr[1].length - 1);
+                                arrayLength = arrayLength.split('..');
+                                arrayLength = parseInt(arrayLength[1], 10) - parseInt(arrayLength[0], 10) + 1;
+                                dataTypeTable[name].subItems[sName].arrayLength = arrayLength;
+                                
+                                
+                                //Data type of the array.
+                                type = typeArr[3].split('(');                    
+                                if (type[1] !== undefined) {
+                                    type[1] = type[1].substr(0, type[1].length - 1);
+                                    dataTypeTable[name].subItems[sName].fullType = typeArr[0] + '.' + arrayLength + '.' + type[0] + '.' + type[1];
+                                    dataTypeTable[name].subItems[sName].stringLength = parseInt(type[1], 10);
+                                } else {
+                                    dataTypeTable[name].subItems[sName].fullType = typeArr[0] + '.' + arrayLength + '.' + type[0];
+                                }
+                                
+                                //Item length
+                                dataTypeTable[name].subItems[sName].itemSize = dataTypeTable[name].subItems[sName].size / arrayLength;
+                                
+                                //Check if variable is a user defined data type,
+                                dataTypeTable[name].subItems[sName].arrayDataType = 'USER';
+                                for (elem in plcTypeLen) {
+                                    if (plcTypeLen.hasOwnProperty(elem)) {
+                                        if (type[0] === elem) {
+                                            dataTypeTable[name].subItems[sName].arrayDataType = type[0];
+                                        }
+                                    }
+                                }
+                                if (dataTypeTable[name].subItems[sName].arrayDataType === 'USER') {
+                                    dataTypeTable[name].subItems[sName].dataType = type[0];
+                                }
+            
+                            } else {
+                                type = typeArr[0].split('(');
+                                
+                                if (type[1] !== undefined) {
+                                    //String
+                                    type[1] = type[1].substr(0, type[1].length - 1);
+                                    dataTypeTable[name].subItems[sName].fullType = type[0] + '.' + type[1];
+                                    dataTypeTable[name].subItems[sName].stringLength = parseInt(type[1], 10);
+                                } else {
+                                    dataTypeTable[name].subItems[sName].fullType = type[0];
+                                }
+                                
+                                //Check if variable is a user defined data type,
+                                dataTypeTable[name].subItems[sName].type = 'USER';
+                                for (elem in plcTypeLen) {
+                                    if (plcTypeLen.hasOwnProperty(elem)) {
+                                        if (type[0] === elem) {
+                                            dataTypeTable[name].subItems[sName].type = type[0];
+                                        }
+                                    }
+                                }
+                                if (dataTypeTable[name].subItems[sName].type === 'USER') {
+                                    dataTypeTable[name].subItems[sName].dataType = type[0];
+                                }
+                            }
                         }
                     }
                     
