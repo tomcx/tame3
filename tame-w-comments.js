@@ -441,7 +441,7 @@ TAME.WebServiceClient = function (service) {
      * @return {Number} indexOffset The IndexOffset for the ADS request. 
      */
     function getIndexOffset(req) {
-        var indexOffset, numString = '', mxaddr = [], i;
+        var indexOffset, numString = '', mxaddr = [], i, dataType, itemArray;
         
         if (req.addr) {
             //Try to get the IndexOffset by address
@@ -482,29 +482,24 @@ TAME.WebServiceClient = function (service) {
                     } else if (typeof req.offs === 'number') {
                         indexOffset += req.offs / 8;
                     }
-                    var dataType, itemArray, i;
                     //Get the bit offset if a sub item is given.
                     if (typeof req.subitem === 'string') {
-                        log(req.subitem);
                         req.subitem = req.subitem.toUpperCase();
-                        log(req.subitem);
                         dataType = symTable[req.name].dataType;
-                        log(dataType);
                         itemArray = req.subitem.split('.');
-                        log(itemArray);
-                        log(indexOffset);
                         for (i = 0; i < itemArray.length; i++) {
-                            //bitOffset = dataTypeTable[dataType][itemArray[i]].bitOffset;
+                            //Calculate the offset
                             if (typeof  dataTypeTable[dataType].subItems[itemArray[i]].bitOffset === 'number') {
-                                indexOffset += dataTypeTable[dataType].subItems[itemArray[i]].bitOffset;
-                                log(dataTypeTable[dataType].subItems[itemArray[i]].bitOffset);
+                                indexOffset += dataTypeTable[dataType].subItems[itemArray[i]].bitOffset / 8;
+                            } else {
+                                log('TAME library error: Can\'t get the bit offset of the subitem!');
+                                log(req.subitem);
+                                log(itemArray[i]);
                             }
-                            
-                            log(indexOffset);
-                            if (dataTypeTable[dataType].type !== undefined) {
-                                dateType = dataTypeTable[dataType].type;
+                            //Get the data type for the next round
+                            if (typeof  dataTypeTable[dataType].subItems[itemArray[i]].dataType === 'string') {
+                                dataType = dataTypeTable[dataType].subItems[itemArray[i]].dataType;
                             }
-                            log(dataType);
                         }                       
                     }
                     
@@ -790,17 +785,69 @@ TAME.WebServiceClient = function (service) {
      * @return {Array} arr      An array with type and format. 
      */
     function getTypeAndFormat(item) {
-        var arr = [];
-        if (typeof item.type === 'string') {
+        var arr = [], typeArray, dataType, i;
+        
+        if (typeof item.subtype === 'string') {
+            //Type of the subitem is defined
+            arr = item.subtype.split('.');
+            if (arr.length > 2) {
+                //Join the formatting string if there were points in it.
+                arr[1] = arr.slice(1).join('.');
+            }
+        } else if (typeof item.type === 'string') {
             //Type is defined
             arr = item.type.split('.');
             if (arr.length > 2) {
                 //Join the formatting string if there were points in it.
                 arr[1] = arr.slice(1).join('.');
             } 
+        } else if (symTableOk && dataTypeTableOk && typeof item.subitem === 'string') {
+            //Try to get the subitem type from the symbol table / data type table
+            item.subitem = item.subitem.toUpperCase();
+            typeArray = item.subitem.split('.');
+            dataType = symTable[item.name].dataType;
+            //Go for the last subitem
+            for (i = 0; i < typeArray.length - 1; i++) {
+                //Check if the subitem is an array
+                /*
+                if (arr[i].charAt(arr[i].length - 1) === ']') {
+                a = arr[i].substring(0,arr[i].length - 1).split('[');
+                obj = obj[a[0]][a[1]];
+                */
+                if (typeArray[i].charAt(typeArray[i].length - 1) === ']') {
+                    //Delete the array index
+                    typeArray[i] = typeArr[i].substring(0,typeArr[i].length - 1).split('[')[0];
+                }
+                //Get the type of the next subitem
+                if (dataTypeTable[dataType].subItems[typeArray[i]].dataType !== undefined) {
+                    dataType = dataTypeTable[dataType].subItems[typeArray[i]].dataType;
+                } else {
+                    log('TAME library error: Can\'t get the data type of the subitem');
+                    log(item.subitem);
+                    log(typeArray[i]);
+                    log(dataTypeTable[dataType].subItems[typeArray[i]]);
+                }
+            }
+            //Get the type of the subitem
+            try {
+                arr[0] = dataTypeTable[dataType].subItems[typeArray[i]].type;
+                if (arr[0] === 'STRING') {
+                    arr[1] = dataTypeTable[dataType].subItems[typeArray[i]].stringLength;
+                } else if (typeof item.format === 'string') {
+                    arr[1] = item.format;
+                } else if (typeof item.decPlaces  === 'number') {
+                    arr[1] = item.decPlaces;
+                } else if (typeof item.dp  === 'number') {
+                    arr[1] = item.dp;
+                }
+            } catch(e) {
+                log('TAME library error: A problem occured while reading a data type from the data type table!');
+                log(e);
+                log(item);
+            }
+            
         } else if (symTableOk && typeof item.name === 'string') {
-            //Try to get the type from the symbol table and
-            //create the item.type property 
+            //Try to get the type from the symbol table
             try {
                 arr[0] = symTable[item.name].type;
                 if (arr[0] === 'STRING') {
@@ -3609,6 +3656,7 @@ TAME.WebServiceClient = function (service) {
     
     //======================================================================================
     //                   Methods for Creating the Symbol Table from Upload
+    //                                 or the TPY File
     //======================================================================================   
  
     /**
@@ -3811,6 +3859,9 @@ TAME.WebServiceClient = function (service) {
         } else {
             log('TAME library error: Can\'t parse the symbol file cause your brower does not provide a DOMParser function.');
         }
+ 
+        //Get the information about the PLC and the webservice
+        
 
         //Create the symbol table
         if (true) {
