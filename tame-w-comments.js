@@ -441,7 +441,7 @@ TAME.WebServiceClient = function (service) {
      * @return {Number} indexOffset The IndexOffset for the ADS request. 
      */
     function getIndexOffset(req) {
-        var indexOffset, numString = '', mxaddr = [], i, dataType, itemArray;
+        var indexOffset, numString = '', mxaddr = [], i, dataType, itemArray, splittedType, bitoffs, subitem;
         
         if (req.addr) {
             //Try to get the IndexOffset by address
@@ -466,7 +466,7 @@ TAME.WebServiceClient = function (service) {
                 return;
             }
         } else if (req.name) {
-            //Try to get the IndexOffset by name
+            //Try to get the IndexOffset by name.
             if (typeof req.name === 'string') {
                 try {
                     //Get the offset from the symbol table
@@ -482,24 +482,36 @@ TAME.WebServiceClient = function (service) {
                     } else if (typeof req.offs === 'number') {
                         indexOffset += req.offs / 8;
                     }
-                    //Get the bit offset if a sub item is given.
+                    //Get the bit offset if a subitem is given.
                     if (typeof req.subitem === 'string') {
                         req.subitem = req.subitem.toUpperCase();
                         dataType = symTable[req.name].dataType;
                         itemArray = req.subitem.split('.');
+                        //Go through the array with the subitems and add the offsets
                         for (i = 0; i < itemArray.length; i++) {
-                            //Calculate the offset
-                            if (typeof  dataTypeTable[dataType].subItems[itemArray[i]].bitOffset === 'number') {
-                                indexOffset += dataTypeTable[dataType].subItems[itemArray[i]].bitOffset / 8;
+                            
+                            //Check if the subitem is an array
+                            if (itemArray[i].charAt(itemArray[i].length - 1) === ']') {
+                                //Get the type and the array index
+                                splittedType = itemArray[i].substring(0,itemArray[i].length - 1).split('[');
+                                itemArray[i] = splittedType[0];
+                            }
+                            
+                            subitem = dataTypeTable[dataType].subItems[itemArray[i]];
+                            
+                            //Calculate the offset.
+                            if (splittedType !== undefined) {
+                                bitoffs = subitem.bitOffset * parseInt(splittedType[1], 10);
                             } else {
-                                log('TAME library error: Can\'t get the bit offset of the subitem!');
-                                log(req.subitem);
-                                log(itemArray[i]);
+                                bitoffs = subitem.bitOffset;
                             }
+                            
+                            indexOffset += bitoffs / 8;
+                              
                             //Get the data type for the next round
-                            if (typeof  dataTypeTable[dataType].subItems[itemArray[i]].dataType === 'string') {
+                            //if (typeof  dataTypeTable[dataType].subItems[itemArray[i]].dataType === 'string') {
                                 dataType = dataTypeTable[dataType].subItems[itemArray[i]].dataType;
-                            }
+                            //}
                         }                       
                     }
                     
@@ -809,24 +821,12 @@ TAME.WebServiceClient = function (service) {
             //Go for the last subitem
             for (i = 0; i < typeArray.length - 1; i++) {
                 //Check if the subitem is an array
-                /*
-                if (arr[i].charAt(arr[i].length - 1) === ']') {
-                a = arr[i].substring(0,arr[i].length - 1).split('[');
-                obj = obj[a[0]][a[1]];
-                */
                 if (typeArray[i].charAt(typeArray[i].length - 1) === ']') {
                     //Delete the array index
-                    typeArray[i] = typeArr[i].substring(0,typeArr[i].length - 1).split('[')[0];
+                    typeArray[i] = typeArray[i].substring(0,typeArray[i].length - 1).split('[')[0];
                 }
                 //Get the type of the next subitem
-                if (dataTypeTable[dataType].subItems[typeArray[i]].dataType !== undefined) {
-                    dataType = dataTypeTable[dataType].subItems[typeArray[i]].dataType;
-                } else {
-                    log('TAME library error: Can\'t get the data type of the subitem');
-                    log(item.subitem);
-                    log(typeArray[i]);
-                    log(dataTypeTable[dataType].subItems[typeArray[i]]);
-                }
+                dataType = dataTypeTable[dataType].subItems[typeArray[i]].dataType;
             }
             //Get the type of the subitem
             try {
@@ -3861,7 +3861,9 @@ TAME.WebServiceClient = function (service) {
         }
  
         //Get the information about the PLC and the webservice
-        
+        if (true) {
+            
+        }
 
         //Create the symbol table
         if (true) {
@@ -4098,7 +4100,7 @@ TAME.WebServiceClient = function (service) {
         log('TAME library info: Reading of the UploadInfo deactivated. Symbol Table could not be created.');
     } else {
         if (typeof service.symFileUrl == 'string') {
-            log('TAME library message: Fetching the TPY file from the webserver.');
+            log('TAME library info: Fetching the TPY file from the webserver.');
             //Get the symbol file and parse it.
             getSymFile();
         } else {
