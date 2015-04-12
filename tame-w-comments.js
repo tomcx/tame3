@@ -483,10 +483,8 @@ TAME.WebServiceClient = function (service) {
                         indexOffset += req.offs / 8;
                     }
                     //Get the bit offset if a subitem is given.
-                    if (typeof req.subitem === 'string') {
-                        req.subitem = req.subitem.toUpperCase();
-                        dataType = symTable[req.name].dataType;
-                        itemArray = req.subitem.split('.');
+                    if (typeof req.arrDataName  === 'array') {
+                        itemArray = req.arrDataName;
                         //Go through the array with the subitems and add the offsets
                         for (i = 0; i < itemArray.length; i++) {
                             
@@ -539,6 +537,113 @@ TAME.WebServiceClient = function (service) {
         }
         
         return indexOffset;  
+    }
+    
+    /**
+     * The function parses the PLC variable name, looks in the symbol and data type table and 
+     * returns an object with the necessary information.
+     * 
+     * @param {Object} item          An object with at least the address or the name for the request.
+     * @return {Objecct} itemInfo    An object with the information about the item.
+     * 
+     */
+    function getItemInformation(item) {
+        var itemInfo = {}, arrPlcVarName;
+        
+        if (typeof item.name === 'string') {
+            item.name = item.name.toUpperCase();
+            arrPlcVarName = item.name.split('.');
+        }
+        
+        //Get the symbol name.
+        if (arrPlcVarName[0] === '') {
+            //Global variable
+            itemInfo.symbolName = '.' + arrPlcVarName[1];
+        } else {
+            //Variable of an instance
+            itemInfo.symbolName = arrPlcVarName[0] + '.' + arrPlcVarName[1]; 
+        }
+        
+        //Leave the rest as an array and add it to the itemInfo
+        itemInfo.arrDataName = arrPlcVarName.slice(2);
+        
+       
+        var arr = [], typeArray, dataType, i;
+        
+        if (typeof item.type === 'string') {
+            //Type is defined by user
+            arr = item.type.split('.');
+            itemInfo.type = arr[0];
+            if (arr.length > 2) {
+                //Join the formatting string if there were points in it.
+                arr[1] = arr.slice(1).join('.');
+                itemInfo.format = arr[1];
+            } 
+        } else if (symTableOk && dataTypeTableOk && typeof itemInfo.arrDataName === 'array') {
+            //Try to get the subitem type from the symbol table / data type table
+            typeArray = itemInfo.arrDataName;
+            dataType = symTable[itemInfo.symbolName].dataType;
+            //Go for the last subitem
+            for (i = 0; i < typeArray.length - 1; i++) {
+                //Check if the subitem is an array
+                if (typeArray[i].charAt(typeArray[i].length - 1) === ']') {
+                    //Delete the array index
+                    typeArray[i] = typeArray[i].substring(0,typeArray[i].length - 1).split('[')[0];
+                }
+                //Get the type of the next subitem
+                dataType = dataTypeTable[dataType].subItems[typeArray[i]].dataType;
+            }
+            //Get the type of the subitem
+            try {
+                itemInfo.type = dataTypeTable[dataType].subItems[typeArray[i]].type;
+                if (itemInfo.type === 'STRING') {
+                    itemInfo.stringLength = dataTypeTable[dataType].subItems[typeArray[i]].stringLength;
+                    itemInfo.format = itemInfo.stringLength; //compatibility
+                } else if (typeof item.format === 'string') {
+                    itemInfo.format = item.format;
+                } else if (typeof item.decPlaces  === 'number') {
+                    itemInfo.format = item.decPlaces;
+                } else if (typeof item.dp  === 'number') {
+                    itemInfo.format = item.dp;
+                }
+                itemInfo.arrayLength = dataTypeTable[dataType].subItems[typeArray[i]].arrayLength;
+            } catch(e) {
+                log('TAME library error: A problem occured while reading a data type from the data type table!');
+                log(e);
+                log(item);
+            }
+            
+            
+        } else if (symTableOk && typeof itemInfo.symbolName === 'string') {
+            //Try to get the type from the symbol table
+            try {
+                itemInfo.type = symTable[item.name].type;
+                if (itemInfo.type === 'STRING') {
+                    itemInfo.stringLength = symTable[item.name].stringLength;
+                    itemInfo.format = itemInfo.stringLength; //compatibility
+                } else if (typeof item.format === 'string') {
+                    itemInfo.format = item.format;
+                } else if (typeof item.decPlaces  === 'number') {
+                    itemInfo.format = item.decPlaces;
+                } else if (typeof item.dp  === 'number') {
+                    itemInfo.format = item.dp;
+                }
+                itemInfo.arrayLength = symTable[item.name].arrayLength;
+            } catch(e) {
+                log('TAME library error: A problem occured while reading a data type from the symbol table!');
+                log(e);
+                log(item);
+            }
+            
+
+            
+        } else {
+            log('TAME library error: Could not get the type of the item!');
+            log(item);
+        }
+        
+        return itemInfo;
+        
     }
     
     
@@ -791,7 +896,7 @@ TAME.WebServiceClient = function (service) {
     
     /**
      * Get type and format and return it in an array. Create an
-     * item.type entry if it doesn't exist.
+     * item.type entry if it doesn't exist. 
      * 
      * @param {Object} item     An item of a variable list.
      * @return {Array} arr      An array with type and format. 
@@ -799,20 +904,13 @@ TAME.WebServiceClient = function (service) {
     function getTypeAndFormat(item) {
         var arr = [], typeArray, dataType, i;
         
-        if (typeof item.subtype === 'string') {
-            //Type of the subitem is defined
-            arr = item.subtype.split('.');
-            if (arr.length > 2) {
-                //Join the formatting string if there were points in it.
-                arr[1] = arr.slice(1).join('.');
-            }
-        } else if (typeof item.type === 'string') {
+        if (typeof item.type === 'string') {
             //Type is defined
             arr = item.type.split('.');
             if (arr.length > 2) {
                 //Join the formatting string if there were points in it.
                 arr[1] = arr.slice(1).join('.');
-            } 
+            } /*
         } else if (symTableOk && dataTypeTableOk && typeof item.subitem === 'string') {
             //Try to get the subitem type from the symbol table / data type table
             item.subitem = item.subitem.toUpperCase();
@@ -863,7 +961,7 @@ TAME.WebServiceClient = function (service) {
                 log('TAME library error: A problem occured while reading a data type from the symbol table!');
                 log(e);
                 log(item);
-            }
+            }*/
         } else {
             log('TAME library error: Could not get the type of the item!');
             log(item);
@@ -2319,13 +2417,16 @@ TAME.WebServiceClient = function (service) {
         var reqDescr = {},
             arrSymType,
             len;
+            
+        var itemInfo = getItemInformation(args);
+        log(itemInfo);
 
         len = plcTypeLen[type];
         
         //Set the variable name to upper case.
-        if (typeof args.name === 'string') { 
-            args.name = args.name.toUpperCase();
-        }
+        //if (typeof args.name === 'string') { 
+        //    args.name = args.name.toUpperCase();
+        //}
         
         switch (type) {
             case 'STRING':
@@ -2333,15 +2434,12 @@ TAME.WebServiceClient = function (service) {
                 if (isValidStringLen(args.strlen)) {
                     type += '.' + args.strlen;
                     len = args.strlen;
-                } else if (symTableOk === true) {
-                    //Get the string length from the symbol table.
-                    try {
-                        len = symTable[args.name].stringLength;
-                        type += '.' + len;
-                    } catch(e) {
-                        log('TAME library error: A problem occured while reading the string length from the symbol table!');
-                        log(e);
-                    }
+                } else if (typeof itemInfo.stringLength === 'number') {
+                    len = itemInfo.stringLength;
+                    type += '.' + len;
+                } else {
+                    log('TAME library error: Could not get the length of the string for this request!');
+                    log(args);
                 }
                 len++; //Termination
                 break;
@@ -2370,7 +2468,9 @@ TAME.WebServiceClient = function (service) {
         //Create the Request Descriptor.
         reqDescr = {
             addr: args.addr,
-            name: args.name,
+            //name: args.name,
+            name: itemInfo.symbolName,
+            arrDataName: itemInfo.arrDataName,
             id: args.id,
             oc: args.oc,
             ocd: args.ocd,
@@ -2431,9 +2531,13 @@ TAME.WebServiceClient = function (service) {
         
         
         //Set the variable name to upper case.
-        if (typeof args.name === 'string') { 
+        /*if (typeof args.name === 'string') { 
             args.name = args.name.toUpperCase();
-        }
+        }*/
+        
+        var itemInfo = getItemInformation(args);
+        log(itemInfo);
+
         
         //Get the object of the stored data, direct with 'val'
         //for a write request or parsing the name if 'jvar' is given.
@@ -2451,16 +2555,12 @@ TAME.WebServiceClient = function (service) {
         if (typeof args.arrlen === 'number') {
             //Override array length if manually set
             arrayLength = args.arrlen;
-        } else if (symTableOk === true) {
+        } else if (itemInfo.arrayLength !== undefined) {
             //Get the array length from the symbol table.
-            try {
-                arrayLength = symTable[args.name].arrayLength;
-            } catch(e) {
-                log('TAME library error: A proble occured while reading the array length from the symbol table!');
-                log(e);
-            }
+            arrayLength = itemInfo.arrayLength;
         } else {
             log('TAME library error: Can\'t get the array length for this request!');
+            log(args);
         }
         
         //Check if only one item should be written.
@@ -2552,7 +2652,8 @@ TAME.WebServiceClient = function (service) {
             
             reqDescr = {
                 addr: args.addr,
-                name: args.name,
+                name: itemInfo.symbolName,
+                arrDataName: itemInfo.arrDataName,
                 addrOffset: addrOffset,
                 id: args.id,
                 oc: args.oc,
@@ -2660,10 +2761,12 @@ TAME.WebServiceClient = function (service) {
                         //Change the read length if a value is given.
                         type += '.' + args.strlen;
                         len = args.strlen;
-                    } else if (symTableOk === true) {
-                        //Get the lenth from the symbol table.
-                        len = symTable[args.name].stringLength;
+                    } else if (typeof itemInfo.stringLength === 'number') {
+                        len = itemInfo.stringLength;
                         type += '.' + len;
+                    } else {
+                        log('TAME library error: Could not get the length of the string for this request!');
+                        log(args);
                     }
                     len++; //Termination
                     break;
@@ -2699,7 +2802,8 @@ TAME.WebServiceClient = function (service) {
             
             reqDescr = {
                 addr: args.addr,
-                name: args.name,
+                name: itemInfo.symbolName,
+                arrDataName: itemInfo.arrDataName,
                 addrOffset: addrOffset,
                 id: args.id,
                 oc: args.oc,
@@ -2765,9 +2869,12 @@ TAME.WebServiceClient = function (service) {
             j;
         
         //Set the variable name to upper case.
-        if (typeof args.name === 'string') { 
+        /*if (typeof args.name === 'string') { 
             args.name = args.name.toUpperCase();
-        }
+        }*/
+        
+        var itemInfo = getItemInformation(args);
+        log(itemInfo);
         
         //Get the object of the stored data, direct with 'val'
         //for a write request or parsing the name if 'jvar' is given.
@@ -2789,7 +2896,9 @@ TAME.WebServiceClient = function (service) {
         
         reqDescr = {
             addr: args.addr,
-            name: args.name,
+            //name: args.name,
+            name: itemInfo.symbolName,
+            arrDataName: itemInfo.arrDataName,
             id: args.id,
             oc: args.oc,
             ocd: args.ocd,
@@ -2977,9 +3086,9 @@ TAME.WebServiceClient = function (service) {
             item, format, type, listlen, mod, vlen, strlen, idx, startaddr;
             
         //Set the variable name to upper case.
-        if (typeof reqDescr.name === 'string') { 
+        /*if (typeof reqDescr.name === 'string') { 
             reqDescr.name = reqDescr.name.toUpperCase();
-        }
+        }*/
 
         //Calculate the data length if no argument is given.
         if (typeof reqDescr.readLength !== 'number') {
@@ -3075,6 +3184,7 @@ TAME.WebServiceClient = function (service) {
             type = arrType[0];
             format = arrType[1];
             
+            var test = getItemInformation(item);
 
             //Length of the data type.
             len = symTable[item.name].size;
