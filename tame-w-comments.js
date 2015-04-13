@@ -3173,7 +3173,7 @@ TAME.WebServiceClient = function (service) {
         for (idx = 0; idx < listlen; idx++) {
             
             item = itemList[idx];
-            
+            /*
             //Set the variable name to upper case.
             if (typeof item.name === 'string') { 
                 item.name = item.name.toUpperCase();
@@ -3183,8 +3183,8 @@ TAME.WebServiceClient = function (service) {
             arrType = getTypeAndFormat(item);
             type = arrType[0];
             format = arrType[1];
-            
-            var test = getItemInformation(item);
+            */
+            var itemInfo = getItemInformation(item);
 
             //Length of the data type.
             len = symTable[item.name].size;
@@ -4075,7 +4075,7 @@ TAME.WebServiceClient = function (service) {
         
         
         //Get the data types.
-        var allDataTypes, dataTypeArray, subItemArray, sName ;
+        var allDataTypes, dataTypeArray, subItemArray, sName , fullName;
         
         if (true) {
             try {            
@@ -4085,15 +4085,31 @@ TAME.WebServiceClient = function (service) {
                 
                 //Get the name of the data type and create an object property with it.
                 //dataTypeTable is declared outside in the constructor function.
+                //Arrays first
                 for (var i = 0; i < dataTypeArray.length; i++) {
-                    name = dataTypeArray[i].getElementsByTagName('Name')[0].childNodes[0].nodeValue.toUpperCase();
-                    name = name.split(" ")[0];
+                    fullName = dataTypeArray[i].getElementsByTagName('Name')[0].childNodes[0].nodeValue.toUpperCase();
+                    name = fullName.split(" ")[0];
+                    if (name === 'ARRAY') {
+                        
+                        dataTypeTable[fullName] = {
+                            //type: dataTypeArray[i].getElementsByTagName('Type')[0].childNodes[0].nodeValue.toUpperCase(),
+                            bitSize: parseInt(dataTypeArray[i].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue, 10)
+                        };
+                        dataTypeTable[fullName].size = dataTypeTable[fullName].bitSize / 8;
+                    }
+                }
+                //Then the rest
+                for (var i = 0; i < dataTypeArray.length; i++) {
+                    fullName = dataTypeArray[i].getElementsByTagName('Name')[0].childNodes[0].nodeValue.toUpperCase();
+                    name = fullName.split(" ")[0];
                     if (name !== 'ARRAY') {
+                        
                         dataTypeTable[name] = {
                             //type: dataTypeArray[i].getElementsByTagName('Type')[0].childNodes[0].nodeValue.toUpperCase(),
                             bitSize: parseInt(dataTypeArray[i].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue, 10),
                             subItems: {}
                         };
+                        dataTypeTable[name].size = dataTypeTable[name].bitSize / 8;
                         //Get the SubItems
                         subItemArray = dataTypeArray[i].getElementsByTagName('SubItem');
                         
@@ -4132,6 +4148,10 @@ TAME.WebServiceClient = function (service) {
                                 } else {
                                     dataTypeTable[name].subItems[sName].fullType = typeArr[0] + '.' + arrayLength + '.' + type[0];
                                 }
+                                
+                                dataTypeTable[name].subItems[sName].bitSize = dataTypeTable[dataTypeTable[name].subItems[sName].typeString].bitSize;
+                                dataTypeTable[name].subItems[sName].size = dataTypeTable[dataTypeTable[name].subItems[sName].typeString].size;
+                                
                                 
                                 //Item length
                                 dataTypeTable[name].subItems[sName].itemSize = dataTypeTable[name].subItems[sName].size / arrayLength;
