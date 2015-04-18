@@ -471,6 +471,11 @@ TAME.WebServiceClient = function (service) {
                 try {
                     //Get the offset from the symbol table
                     indexOffset = symTable[req.symbolName].indexOffset;
+                           
+                    if (typeof req.symbolNameArrIdx === 'number') {
+                        indexOffset += subitem.itemSize * (req.symbolNameArrIdx - symTable[req.symbolName].arrStartIdx);
+                    } 
+                    
                     //log('mainoffs:' + indexOffset);
                     //Address offset is used if only one item of an array
                     //should be sent.
@@ -484,15 +489,15 @@ TAME.WebServiceClient = function (service) {
                         indexOffset += req.offs / 8;
                     }
                     //Get the bit offset if a subitem is given.
-                    if (req.arrDataName.length > 0) {
-                        itemArray = req.arrDataName;
-                        //log('dn: ' + req.arrDataName);
-                        //log('dnt: ' + typeof(req.arrDataName));
+                    if (req.dataTypeNames.length > 0) {
+                        itemArray = req.dataTypeNames;
+                        //log('dn: ' + req.dataTypeNames);
+                        //log('dnt: ' + typeof(req.dataTypeNames));
                         dataType = symTable[req.symbolName].dataType;
                         //Go through the array with the subitems and add the offsets
                         for (i = 0; i < itemArray.length; i++) {
                             //log('req.dataType: ' + req.dataType);
-                            log('req: ' + itemArray[i]);
+                            //log('req: ' + itemArray[i]);
                             //Check if the subitem is an array
                             /*if (itemArray[i].charAt(itemArray[i].length - 1) === ']') {
                                 //Get the type and the array index
@@ -500,16 +505,16 @@ TAME.WebServiceClient = function (service) {
                                 //itemArray[i] = splittedType[0];
                                 log('split: ' + splittedType);
                             }*/
-                            log('1: ' + indexOffset);
+                            //log('1: ' + indexOffset);
                             subitem = dataTypeTable[dataType].subItems[itemArray[i]];
                             //bitoffs = subitem.bitOffset;
                             indexOffset += subitem.bitOffset / 8;
-                            log('2: ' + indexOffset);
+                            //log('2: ' + indexOffset);
                             //Calculate the offset.
-                            if (typeof req.arrIdx[i + 1] === 'number') {
-                                indexOffset += subitem.itemSize * req.arrIdx[i + 1];
+                            if (typeof req.dataTypeArrIdx[i] === 'number') {
+                                indexOffset += subitem.itemSize * (req.dataTypeArrIdx[i] - subitem.arrStartIdx);
                             } 
-                            log('3: ' + indexOffset);
+                            //log('3: ' + indexOffset);
                             //Get the data type for the next round
                             //if (typeof  dataTypeTable[dataType].subItems[itemArray[i]].dataType === 'string') {
                                 dataType = dataTypeTable[dataType].subItems[itemArray[i]].dataType;
@@ -559,7 +564,7 @@ TAME.WebServiceClient = function (service) {
             item.name = item.name.toUpperCase();
             arrPlcVarName = item.name.split('.');
         }
-        log(item.name);
+        //log(item.name);
         //Get the symbol name.
         if (arrPlcVarName[0] === '') {
             //Global variable
@@ -568,10 +573,17 @@ TAME.WebServiceClient = function (service) {
             //Variable of an instance
             itemInfo.symbolName = arrPlcVarName[0] + '.' + arrPlcVarName[1]; 
         }
+        //Cut an array index
+        if (itemInfo.symbolName.charAt(itemInfo.symbolName.length - 1) === ']') {
+            //Cut the array index and store it
+            splitType = itemInfo.symbolName.substring(0,itemInfo.symbolName.length - 1).split('[');
+            itemInfo.symbolName = splitType[0];
+            itemInfo.symbolNameArrIdx = parseInt(splitType[1], 10);
+        }
         
         //Leave the rest as an array and add it to the itemInfo
-        itemInfo.arrDataName = arrPlcVarName.slice(2);
-        log(itemInfo.arrDataName);
+        itemInfo.dataTypeNames = arrPlcVarName.slice(2);
+        //log(itemInfo.dataTypeNames);
        
         var arr = [], typeArray, dataType, i;
         
@@ -587,38 +599,42 @@ TAME.WebServiceClient = function (service) {
             itemInfo.size = plcTypeLen[item.type];
         }
 
-        if (symTableOk && dataTypeTableOk && itemInfo.arrDataName.length > 0) {
+        if (symTableOk && dataTypeTableOk && itemInfo.dataTypeNames.length > 0) {
             //Try to get the subitem type from the symbol table / data type table
-            typeArray = itemInfo.arrDataName;
+            typeArray = itemInfo.dataTypeNames;
             dataType = symTable[itemInfo.symbolName].dataType;
-            log(dataType);
-            itemInfo.arrIdx = [];
+            //log(dataType);
+            itemInfo.dataTypeArrIdx = [];
             //Go for the last subitem
             //for (i = 0; i < typeArray.length; i++) {
             i = 0;
+            
             do {
                 //Check if the subitem is an array
                 if (typeArray[i].charAt(typeArray[i].length - 1) === ']') {
-                    //Delete the array index
-                    log('yuhu');
+                    //Cut the array index and store it in an extra array
                     splitType = typeArray[i].substring(0,typeArray[i].length - 1).split('[');
                     typeArray[i] = splitType[0];
-                    itemInfo.arrIdx[i + 1] = parseInt(splitType[1], 10);
-                    
+                    itemInfo.dataTypeArrIdx[i] = parseInt(splitType[1], 10);
                 }
+                
+                if (dataTypeTable[dataType].subItems[typeArray[i]].pointer === "1") {
+                    log('TAME library error: PLC variable ' + [typeArray[i]] + ' is a pointer! Can\'t get the variable value.');
+                }
+                
                 //Get the type of the next subitem
                 if (i === typeArray.length - 1) {
                    break;
                 }
                 dataType = dataTypeTable[dataType].subItems[typeArray[i]].dataType;
-                log(dataType);
-                log(typeArray[i]);
+                //log(dataType);
+                //log(typeArray[i]);
                 i++;
             } while (i < typeArray.length);
                         
-            log(dataType);
-            log(typeArray[i]);
-            log(dataTypeTable[dataType].subItems[typeArray[i]]);
+            //log(dataType);
+            //log(typeArray[i]);
+            //log(dataTypeTable[dataType].subItems[typeArray[i]]);
             //Get the type of the subitem
             try {
                 if (item.type === undefined) {
@@ -635,7 +651,6 @@ TAME.WebServiceClient = function (service) {
                 } else if (typeof item.dp  === 'number') {
                     itemInfo.format = item.dp;
                 }
-                itemInfo.arrayLength = dataTypeTable[dataType].subItems[typeArray[i]].arrayLength;
 
                 itemInfo.arrayLength = dataTypeTable[dataType].subItems[typeArray[i]].arrayLength;
                 itemInfo.arrayDataType = dataTypeTable[dataType].subItems[typeArray[i]].arrayDataType;
@@ -648,8 +663,8 @@ TAME.WebServiceClient = function (service) {
                 
                 itemInfo.bitOffset = dataTypeTable[dataType].subItems[typeArray[i]].bitOffset;
                 itemInfo.offs = item.offs;
-                log(i + "," + itemInfo.arrIdx[i + 1]);
-                if (itemInfo.arrIdx[i + 1] !== undefined && itemInfo.type === 'ARRAY') {
+                //log(i + "," + itemInfo.dataTypeArrIdx[i]);
+                if (itemInfo.dataTypeArrIdx[i] !== undefined && itemInfo.type === 'ARRAY') {
                     itemInfo.type = dataTypeTable[dataType].subItems[typeArray[i]].arrayDataType;
                     itemInfo.size = dataTypeTable[dataType].subItems[typeArray[i]].size;
                 }
@@ -702,7 +717,7 @@ TAME.WebServiceClient = function (service) {
             log('TAME library error: Could not get the type of the item!');
             log(item);
         }
-        log(itemInfo);
+        //log(itemInfo);
         return itemInfo;
         
     }
@@ -2336,7 +2351,7 @@ TAME.WebServiceClient = function (service) {
                 item = itemList[idx];
                 
                 var itemInfo = getItemInformation(item);
-                log('p: ' + itemInfo.type);
+                //log('p: ' + itemInfo.type);
                 
                 //Get type and formatting string.
                 //arrType = getTypeAndFormat(item);
@@ -2534,7 +2549,9 @@ TAME.WebServiceClient = function (service) {
             addr: args.addr,
             //name: args.name,
             symbolName: itemInfo.symbolName,
-            arrDataName: itemInfo.arrDataName,
+            dataTypeNames: itemInfo.dataTypeNames,
+            dataTypeArrIdx: itemInfo.dataTypeArrIdx,
+            symbolNameArrIdx: itemInfo.symbolNameArrIdx,
             id: args.id,
             oc: args.oc,
             ocd: args.ocd,
@@ -2717,7 +2734,7 @@ TAME.WebServiceClient = function (service) {
             reqDescr = {
                 addr: args.addr,
                 symbolName: itemInfo.symbolName,
-                arrDataName: itemInfo.arrDataName,
+                dataTypeNames: itemInfo.dataTypeNames,
                 addrOffset: addrOffset,
                 id: args.id,
                 oc: args.oc,
@@ -2867,7 +2884,9 @@ TAME.WebServiceClient = function (service) {
             reqDescr = {
                 addr: args.addr,
                 symbolName: itemInfo.symbolName,
-                arrDataName: itemInfo.arrDataName,
+                dataTypeNames: itemInfo.dataTypeNames,
+                dataTypeArrIdx: itemInfo.dataTypeArrIdx,
+                symbolNameArrIdx: itemInfo.symbolNameArrIdx,
                 addrOffset: addrOffset,
                 id: args.id,
                 oc: args.oc,
@@ -2962,7 +2981,9 @@ TAME.WebServiceClient = function (service) {
             addr: args.addr,
             //name: args.name,
             symbolName: itemInfo.symbolName,
-            arrDataName: itemInfo.arrDataName,
+            dataTypeNames: itemInfo.dataTypeNames,
+            dataTypeArrIdx: itemInfo.dataTypeArrIdx,
+            symbolNameArrIdx: itemInfo.symbolNameArrIdx,
             id: args.id,
             oc: args.oc,
             ocd: args.ocd,
@@ -3937,6 +3958,7 @@ TAME.WebServiceClient = function (service) {
                     //Array Length
                     arrayLength = typeArr[1].substring(1, typeArr[1].length - 1);
                     arrayLength = arrayLength.split('..');
+                    symTable[name].arrStartIdx = parseInt(arrayLength[0], 10);
                     arrayLength = parseInt(arrayLength[1], 10) - parseInt(arrayLength[0], 10) + 1;
                     symTable[name].arrayLength = arrayLength;
                     
@@ -4070,11 +4092,13 @@ TAME.WebServiceClient = function (service) {
                         //Type
                         symTable[name].type = typeArr[0];
                         
-                        //Array Length
+                        //Array length
                         arrayLength = typeArr[1].substring(1, typeArr[1].length - 1);
                         arrayLength = arrayLength.split('..');
+                        symTable[name].arrStartIdx = parseInt(arrayLength[0], 10);
                         arrayLength = parseInt(arrayLength[1], 10) - parseInt(arrayLength[0], 10) + 1;
                         symTable[name].arrayLength = arrayLength;
+                        
                         
                         
                         //Data type of the array.
@@ -4179,16 +4203,19 @@ TAME.WebServiceClient = function (service) {
                         dataTypeTable[name].size = dataTypeTable[name].bitSize / 8;
                         //Get the SubItems
                         subItemArray = dataTypeArray[i].getElementsByTagName('SubItem');
-                        
+
                         for (var j = 0; j < subItemArray.length; j++) {
                             sName = subItemArray[j].getElementsByTagName('Name')[0].childNodes[0].nodeValue.toUpperCase();
                             dataTypeTable[name].subItems[sName] = {
                                 typeString: subItemArray[j].getElementsByTagName('Type')[0].childNodes[0].nodeValue.toUpperCase(),
+                                pointer: subItemArray[j].getElementsByTagName('Type')[0].getAttribute('Pointer'),
                                 bitSize: parseInt(subItemArray[j].getElementsByTagName('BitSize')[0].childNodes[0].nodeValue, 10),
                             };
                             if (subItemArray[j].getElementsByTagName('BitOffs')[0] !== undefined) {
                                 dataTypeTable[name].subItems[sName].bitOffset = parseInt(subItemArray[j].getElementsByTagName('BitOffs')[0].childNodes[0].nodeValue, 10);
                             }
+                            
+                                
                             dataTypeTable[name].subItems[sName].size = (dataTypeTable[name].subItems[sName].bitSize >= 8) ? dataTypeTable[name].subItems[sName].bitSize/8 : dataTypeTable[name].subItems[sName].bitSize;
                 
                             //Set additional information
@@ -4202,6 +4229,7 @@ TAME.WebServiceClient = function (service) {
                                 //Array Length
                                 arrayLength = typeArr[1].substring(1, typeArr[1].length - 1);
                                 arrayLength = arrayLength.split('..');
+                                dataTypeTable[name].subItems[sName].arrStartIdx = parseInt(arrayLength[0], 10);
                                 arrayLength = parseInt(arrayLength[1], 10) - parseInt(arrayLength[0], 10) + 1;
                                 dataTypeTable[name].subItems[sName].arrayLength = arrayLength;
                                 
