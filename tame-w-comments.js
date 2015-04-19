@@ -469,7 +469,7 @@ TAME.WebServiceClient = function (service) {
                     indexOffset = symTable[req.symbolName].indexOffset;
                            
                     if (typeof req.symbolNameArrIdx === 'number') {
-                        indexOffset += subitem.itemSize * (req.symbolNameArrIdx - symTable[req.symbolName].arrStartIdx);
+                        indexOffset += symTable[req.symbolName].itemSize * (req.symbolNameArrIdx - symTable[req.symbolName].arrStartIdx);
                     } 
                     
                     //log('mainoffs:' + indexOffset);
@@ -4311,7 +4311,9 @@ TAME.WebServiceClient = function (service) {
     };
     
     
-    
+    /**
+     *  Set the service parameter with the values read from the TPY file.
+     */
     function setServiceParamFromTPY() {
         if (typeof service.amsNetId !== 'string') {
             service.amsNetId = serviceInfo.netId;
