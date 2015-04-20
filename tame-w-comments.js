@@ -192,13 +192,13 @@ TAME.WebServiceClient = function (service) {
     }
 
     //AMS NetID of the PLC
-    if (typeof service.amsNetId !== 'string' && typeof service.symFileUrl !== 'string') {
+    if (typeof service.amsNetId !== 'string' && typeof service.configFileUrl !== 'string') {
         log('TAME library error: NetId is not defined and there is no URL for fetching the TPY file!');
         return;
     }
     
     //AMS Port Number of the Runtime System
-    if (service.amsPort === undefined && typeof service.symFileUrl !== 'string') {
+    if (service.amsPort === undefined && typeof service.configFileUrl !== 'string') {
         service.amsPort = '801';
         log('TAME library warning: AMS port number is not set! Default port 801 will be used.');
     } else if (typeof service.amsPort === 'number') {
@@ -215,7 +215,7 @@ TAME.WebServiceClient = function (service) {
     //dataAlign4 is depricated
     if (service.dataAlign4 === true) {
         alignment = 4;
-    } else if (service.alignment === undefined && typeof service.symFileUrl !== 'string') {
+    } else if (service.alignment === undefined && typeof service.configFileUrl !== 'string') {
         alignment = 1;
     } else if (typeof service.alignment === 'string') {
         alignment = parseInt(service.alignment, 10);
@@ -4029,14 +4029,14 @@ TAME.WebServiceClient = function (service) {
     * Get the symbol-file (*.tpy) from the server and create
     * an object (symTable) with the symbol names as the properties. 
     */    
-    function getSymFile() {
+    function getConfigFile() {
   
         var xmlHttpReq = createXMLHttpReq(),
         symbolArray = [],
         symFile, name, allSymbols, typeArr, arrayLength, type, elem;
         
         //Synchronous HTTPRequest
-        xmlHttpReq.open('GET', service.symFileUrl, false);
+        xmlHttpReq.open('GET', service.configFileUrl, false);
         xmlHttpReq.setRequestHeader('Content-Type', 'text/xml');
         xmlHttpReq.send(null);
 
@@ -4352,10 +4352,10 @@ TAME.WebServiceClient = function (service) {
     if (service.dontFetchSymbols === true) {
         log('TAME library info: Reading of the UploadInfo deactivated. Symbol Table could not be created.');
     } else {
-        if (typeof service.symFileUrl == 'string') {
+        if (typeof service.configFileUrl == 'string') {
             log('TAME library info: Fetching the TPY file from the webserver.');
             //Get the symbol file and parse it.
-            getSymFile();
+            getConfigFile();
         } else {
             log('TAME library info: Start fetching the symbols from PLC.');
             //Get the UploadInfo.
