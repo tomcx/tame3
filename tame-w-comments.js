@@ -4033,7 +4033,8 @@ TAME.WebServiceClient = function (service) {
   
         var xmlHttpReq = createXMLHttpReq(),
         symbolArray = [],
-        symFile, name, allSymbols, typeArr, arrayLength, type, elem;
+        configFile, name, allSymbols, typeArr, arrayLength, type, elem,
+        tcVersion;
         
         //Synchronous HTTPRequest
         xmlHttpReq.open('GET', service.configFileUrl, false);
@@ -4046,7 +4047,7 @@ TAME.WebServiceClient = function (service) {
         //Create a DOM object from XML
         if (typeof DOMParser == 'function') {
             try {
-                symFile = (new DOMParser()).parseFromString(xmlHttpReq.responseText, "text/xml");
+                configFile = (new DOMParser()).parseFromString(xmlHttpReq.responseText, "text/xml");
             } catch (e) {
                 log('TAME library error: Creating a DOM object from TPY failed:' + e);
                 return;
@@ -4055,25 +4056,35 @@ TAME.WebServiceClient = function (service) {
             log('TAME library error: Can\'t parse the symbol file cause your brower does not provide a DOMParser function.');
         }
  
+        
         //Get the information about the PLC and the routing
         if (true) {
             try {
                  serviceInfo = {
-                     netId: symFile.getElementsByTagName('NetId')[0].childNodes[0].nodeValue,
-                     port: symFile.getElementsByTagName('Port')[0].childNodes[0].nodeValue,
-                     alignment: parseInt(symFile.getElementsByTagName('PackSize')[0].childNodes[0].nodeValue, 10)
+                     netId: configFile.getElementsByTagName('NetId')[0].childNodes[0].nodeValue,
+                     port: configFile.getElementsByTagName('Port')[0].childNodes[0].nodeValue
                  };
             } catch(e) {
                 log('TAME library error: An error occured while reading service information from the TPY file:');
                 log(e);
             }
         }
- 
+        
+        tcVersion = configFile.getElementsByTagName('TwinCATVersion')[0].childNodes[0].nodeValue.charAt(0);
+        if (tcVersion === '2') {
+            serviceInfo.alignment = parseInt(configFile.getElementsByTagName('PackSize')[0].childNodes[0].nodeValue, 10);
+        } else if (tcVersion === '3') {
+            serviceInfo.alignment = 8;
+        } else {
+            log('TAME library error: Could not determine the TwinCAT version.');
+        }
+        
+        
         //Create the symbol table
         if (true) {
             try {           
                 //Create an Array of the Elements with "Symbol" as tag name.
-                allSymbols = symFile.getElementsByTagName('Symbols')[0];
+                allSymbols = configFile.getElementsByTagName('Symbols')[0];
                 symbolArray = allSymbols.getElementsByTagName('Symbol');
                 
                 //Get the name of the symbol and create an object property with it.
@@ -4176,7 +4187,7 @@ TAME.WebServiceClient = function (service) {
         if (true) {
             try {            
                 //Create an Array of the Elements with "DataType" as tag name.
-                allDataTypes = symFile.getElementsByTagName('DataTypes')[0];
+                allDataTypes = configFile.getElementsByTagName('DataTypes')[0];
                 dataTypeArray = allDataTypes.getElementsByTagName('DataType');
                 
                 //Get the name of the data type and create an object property with it.
