@@ -590,8 +590,8 @@ TAME.WebServiceClient = function (service) {
             if (arr.length > 2) {
                 //Join the formatting string if there were points in it.
                 arr[1] = arr.slice(1).join('.');
-                itemInfo.format = arr[1];
             }
+            itemInfo.format = arr[1];
             itemInfo.size = plcTypeLen[item.type];
         }
 
@@ -654,15 +654,17 @@ TAME.WebServiceClient = function (service) {
                 itemInfo.itemSize = dataTypeTable[dataType].subItems[typeArray[i]].itemSize;
                 //itemInfo.fullType = dataTypeTable[dataType].subItems[typeArray[i]].fullType;
                 
-                //itemInfo.bitSize = dataTypeTable[dataType].subItems[typeArray[i]].bitSize;
-                itemInfo.size = dataTypeTable[dataType].subItems[typeArray[i]].size;
+                if (itemInfo.size === undefined) {
+                    //itemInfo.bitSize = dataTypeTable[dataType].subItems[typeArray[i]].bitSize;
+                    itemInfo.size = dataTypeTable[dataType].subItems[typeArray[i]].size;
+                }
                 
                 itemInfo.bitOffset = dataTypeTable[dataType].subItems[typeArray[i]].bitOffset;
                 itemInfo.offs = item.offs;
                 //log(i + "," + itemInfo.dataTypeArrIdx[i]);
                 if (itemInfo.dataTypeArrIdx[i] !== undefined && itemInfo.type === 'ARRAY') {
                     itemInfo.type = dataTypeTable[dataType].subItems[typeArray[i]].arrayDataType;
-                    itemInfo.size = dataTypeTable[dataType].subItems[typeArray[i]].size;
+                    itemInfo.size = dataTypeTable[dataType].subItems[typeArray[i]].itemSize;
                 }
                 
             } catch(e) {
@@ -672,14 +674,14 @@ TAME.WebServiceClient = function (service) {
             }
             
             
-        } else if (symTableOk && typeof item.name === 'string') {
+        } else if (symTableOk) {
             //Try to get the type from the symbol table
             try {
                 if (item.type === undefined) {
-                    itemInfo.type = symTable[item.name].type;
+                    itemInfo.type = symTable[itemInfo.symbolName].type;
                 }
                 if (itemInfo.type === 'STRING') {
-                    itemInfo.stringLength = symTable[item.name].stringLength;
+                    itemInfo.stringLength = symTable[itemInfo.symbolName].stringLength;
                     itemInfo.format = itemInfo.stringLength; //compatibility
                 } else if (typeof item.format === 'string') {
                     itemInfo.format = item.format;
@@ -689,18 +691,25 @@ TAME.WebServiceClient = function (service) {
                     itemInfo.format = item.dp;
                 }
 
-                itemInfo.arrayLength = symTable[item.name].arrayLength;
-                itemInfo.arrayDataType = symTable[item.name].arrayDataType;
-                itemInfo.dataType = symTable[item.name].dataType;
-                //itemInfo.fullType = symTable[item.name].fullType;
-                if (typeof item.type === 'string') {
-                    itemInfo.size = plcTypeLen[item.type];
-                } else {
-                    //itemInfo.bitSize = symTable[item.name].bitSize;
-                    itemInfo.size = symTable[item.name].size;
+                itemInfo.arrayLength = symTable[itemInfo.symbolName].arrayLength;
+                itemInfo.arrayDataType = symTable[itemInfo.symbolName].arrayDataType;
+                itemInfo.dataType = symTable[itemInfo.symbolName].dataType;
+                itemInfo.itemSize = symTable[itemInfo.symbolName].itemSize;
+                //itemInfo.fullType = symTable[itemInfo.symbolName].fullType;
+                
+                if (itemInfo.size === undefined) {
+                    //itemInfo.bitSize = symTable[itemInfo.symbolName].bitSize;
+                    itemInfo.size = symTable[itemInfo.symbolName].size;
                 }
-                itemInfo.bitOffset = symTable[item.name].bitOffset;
+                
+                itemInfo.bitOffset = symTable[itemInfo.symbolName].bitOffset;
                 itemInfo.offs = item.offs;
+                
+                if (itemInfo.symbolNameArrIdx !== undefined && itemInfo.type === 'ARRAY') {
+                    itemInfo.type = symTable[itemInfo.symbolName].arrayDataType;
+                    itemInfo.size = symTable[itemInfo.symbolName].itemSize;
+                }
+                
             } catch(e) {
                 log('TAME library error: A problem occured while reading a data type from the symbol table!');
                 log(e);
@@ -982,7 +991,11 @@ TAME.WebServiceClient = function (service) {
             if (arr.length > 2) {
                 //Join the formatting string if there were points in it.
                 arr[1] = arr.slice(1).join('.');
-            } /*
+            }
+            
+            //log(arr);
+            
+             /*
         } else if (symTableOk && dataTypeTableOk && typeof item.subitem === 'string') {
             //Try to get the subitem type from the symbol table / data type table
             item.subitem = item.subitem.toUpperCase();
@@ -1042,6 +1055,21 @@ TAME.WebServiceClient = function (service) {
     }
     
     
+    function createStructDef(structname) {
+        var struct = {}, dataType, subitem, subitems;
+        
+        dataType = dataTypeTable[structname];
+        subitems = dataType.subItems;
+        
+        for (subitem in subitems) {
+            if (subitems.hasOwnProperty(subitem)) {
+                struct[subitem] = subitems[subitem].fullType;
+            }
+        }
+
+        return struct;
+        
+    }
     
     //======================================================================================
     //                                  Encoder Functions
@@ -2261,6 +2289,15 @@ TAME.WebServiceClient = function (service) {
                 }
             }
             
+            //Check structure definition
+            if (typeof item.def === 'string') {
+                item.def = parseVarName(item.def);
+            } else if (dataTypeTableOk === true && item.def === undefined) {
+                item.def = createStructDef(itemInfo.dataType);
+            } else if (typeof item.def !== 'object') {
+                log('TAME library error: No structure defininition found!');
+            }
+            
             for (elem in item.def) {
                 
                 if (item.def.hasOwnProperty(elem)) {
@@ -2300,7 +2337,10 @@ TAME.WebServiceClient = function (service) {
                         }
                         
                         type = defArr[0];
-                        format = defArr.slice(1).join('.');
+                        if (defArr.length > 2) {
+                            defArr[1] = defArr.slice(1).join('.');
+                        }
+                        format = defArr[1];
                         len = plcTypeLen[type];
                         checkAlignment();
                         parseSubStringSlice();
@@ -2660,6 +2700,8 @@ TAME.WebServiceClient = function (service) {
             //as a string.
             if (typeof args.def === 'string') {
                 args.def = parseVarName(args.def);
+            } else if (dataTypeTableOk === true && args.def === undefined) {
+                args.def = createStructDef(itemInfo.dataType);
             } else if (typeof args.def !== 'object') {
                 log('TAME library error: No structure definition found!');
             }
@@ -2969,6 +3011,8 @@ TAME.WebServiceClient = function (service) {
         //as a string.
         if (typeof args.def === 'string') {
             args.def = parseVarName(args.def);
+        } else if (dataTypeTableOk === true && args.def === undefined) {
+            args.def = createStructDef(itemInfo.dataType);
         } else if (typeof args.def !== 'object') {
             log('TAME library error: No structure defininition found!');
         }
@@ -3266,6 +3310,7 @@ TAME.WebServiceClient = function (service) {
             format = arrType[1];
             */
             var itemInfo = getItemInformation(item);
+            //log(itemInfo);
 
             //Length of the data type.
             len = itemInfo.size;
@@ -3383,6 +3428,15 @@ TAME.WebServiceClient = function (service) {
                 }
             }
             
+            //Check structure definition
+            if (typeof item.def === 'string') {
+                item.def = parseVarName(item.def);
+            } else if (dataTypeTableOk === true && item.def === undefined) {
+                item.def = createStructDef(itemInfo.dataType);
+            } else if (typeof item.def !== 'object') {
+                log('TAME library error: No structure defininition found!');
+            }
+            
             //Walk through the structure definiton
             for (elem in item.def) {
                 
@@ -3432,7 +3486,10 @@ TAME.WebServiceClient = function (service) {
                             }
                             
                             type = defArr[0];
-                            format = defArr.slice(1).join('.');
+                            if (defArr.length > 2) {
+                                defArr[1] = defArr.slice(1).join('.');
+                            }
+                            format = defArr[1];
                             getVarLength();
     
                             checkAlignment();
