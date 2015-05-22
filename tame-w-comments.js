@@ -1,5 +1,5 @@
 /*!
- * TAME [TwinCAT ADS Made Easy] V3.5 alpha
+ * TAME [TwinCAT ADS Made Easy] V3.5 beta
  * 
  * Copyright (c) 2009-2015 Thomas Schmidt; t.schmidt.p1 at freenet.de
  * 
@@ -4117,28 +4117,30 @@ TAME.WebServiceClient = function (service) {
         //Get the information about the PLC and the routing
         if (true) {
             try {
-                 serviceInfo = {
-                     netId: configFile.getElementsByTagName('NetId')[0].childNodes[0].nodeValue,
-                     port: configFile.getElementsByTagName('Port')[0].childNodes[0].nodeValue
-                 };
+                serviceInfo = {
+                    netId: configFile.getElementsByTagName('NetId')[0].childNodes[0].nodeValue,
+                    port: configFile.getElementsByTagName('Port')[0].childNodes[0].nodeValue
+                };
+                 
+                tcVersion = configFile.getElementsByTagName('TwinCATVersion')[0].childNodes[0].nodeValue.charAt(0);
+
+                if (tcVersion === '2') {
+                    serviceInfo.alignment = parseInt(configFile.getElementsByTagName('PackSize')[0].childNodes[0].nodeValue, 10);
+                } else if (tcVersion === '3') {
+                    serviceInfo.alignment = 8;
+                } else {
+                    log('TAME library error: Could not determine the TwinCAT version.');
+                }
+        
             } catch(e) {
                 log('TAME library error: An error occured while reading service information from the TPY file:');
                 log(e);
             }
         }
         
-        tcVersion = configFile.getElementsByTagName('TwinCATVersion')[0].childNodes[0].nodeValue.charAt(0);
-        if (tcVersion === '2') {
-            serviceInfo.alignment = parseInt(configFile.getElementsByTagName('PackSize')[0].childNodes[0].nodeValue, 10);
-        } else if (tcVersion === '3') {
-            serviceInfo.alignment = 8;
-        } else {
-            log('TAME library error: Could not determine the TwinCAT version.');
-        }
-        
-        
+
         //Create the symbol table
-        if (true) {
+        if (service.forceUploadUsage !== true) {
             try {           
                 //Create an Array of the Elements with "Symbol" as tag name.
                 allSymbols = configFile.getElementsByTagName('Symbols')[0];
@@ -4228,13 +4230,16 @@ TAME.WebServiceClient = function (service) {
                 }
                 
                 symTableOk = true;
-                   
+                
+                log('TAME library info: End of reading the symbols from the TPY file.');
                 log('TAME library info: Symbol table ready.');
                     
             } catch(e) {
                 log('TAME library error: An error occured while parsing the symbol file:');
                 log(e);
             }
+        } else {
+            log('TAME library info: Reading the symbols from the TPY file is deactivated.');
         }
         
         
@@ -4369,6 +4374,7 @@ TAME.WebServiceClient = function (service) {
                 dataTypeTableOk = true;       
 
                 log('TAME library info: End of reading the data types from the TPY file.');
+                log('TAME library info: Data type table ready.');
    
             } catch(e) {
                 log('TAME library error: An error occured while creating the data type information:');
@@ -4392,8 +4398,14 @@ TAME.WebServiceClient = function (service) {
             log('TAME library info: AMS port number from TPY file is used: ' + service.amsPort);
         }
         if (alignment === 0) {
-            alignment = serviceInfo.alignment;
-            log('TAME library info: Alignment from TPY file is used and set to: ' + alignment);
+            if (serviceInfo.alignment !== undefined) {
+                alignment = serviceInfo.alignment;
+                log('TAME library info: Alignment from TPY file is used and set to: ' + alignment);
+            } else {
+                alignment = 1;
+                log('TAME library warning: Can\'t get a value for the data aligment. Default value for alignment is used (1). This works only with TC2 and x86 processors.');
+            }
+            
         } else {
             log('TAME library info: Data alignment manually set to: ' + alignment);
         }
@@ -4418,13 +4430,14 @@ TAME.WebServiceClient = function (service) {
      * Get the names of the PLC variables using the upload info.
      */
     if (service.dontFetchSymbols === true) {
-        log('TAME library info: Reading of the UploadInfo deactivated. Symbol Table could not be created.');
+        log('TAME library info: Reading of the UploadInfo and the config file deactivated. Symbol Table could not be created.');
     } else {
         if (typeof service.configFileUrl == 'string') {
             log('TAME library info: Fetching the TPY file from the webserver.');
             //Get the symbol file and parse it.
             getConfigFile();
-        } else {
+        } 
+        if (typeof service.configFileUrl != 'string' || service.forceUploadUsage === true) {
             log('TAME library info: Start fetching the symbols from PLC.');
             //Get the UploadInfo.
             try {
