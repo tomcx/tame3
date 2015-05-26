@@ -192,13 +192,13 @@ TAME.WebServiceClient = function (service) {
     }
 
     //AMS NetID of the PLC
-    if (typeof service.amsNetId !== 'string' && typeof service.configFileUrl !== 'string') {
-        log('TAME library error: NetId is not defined and there is no URL for fetching the TPY file!');
+    if (typeof service.amsNetId !== 'string' && (typeof service.configFileUrl !== 'string' || service.dontFetchSymbols === true)) {
+        log('TAME library error: NetId is not defined and there is no URL for fetching the TPY file or fetching the symbols is deactivated!');
         return;
     }
     
     //AMS Port Number of the Runtime System
-    if (service.amsPort === undefined && typeof service.configFileUrl !== 'string') {
+    if (service.amsPort === undefined && (typeof service.configFileUrl !== 'string' || service.dontFetchSymbols === true)) {
         service.amsPort = '801';
         log('TAME library warning: AMS port number is not set! Default port 801 will be used.');
     } else if (typeof service.amsPort === 'number') {
@@ -215,7 +215,7 @@ TAME.WebServiceClient = function (service) {
     //dataAlign4 is depricated
     if (service.dataAlign4 === true) {
         alignment = 4;
-    } else if (service.alignment === undefined && typeof service.configFileUrl !== 'string') {
+    } else if (service.alignment === undefined && (typeof service.configFileUrl !== 'string' || service.dontFetchSymbols === true)) {
         alignment = 1;
     } else if (typeof service.alignment === 'string') {
         alignment = parseInt(service.alignment, 10);
@@ -3605,7 +3605,7 @@ TAME.WebServiceClient = function (service) {
             log('TAME library error: No JSON parser found.');
         } else {
             try {
-                jstr = JSON.stringify(symTable);
+                jstr = JSON.stringify(dataTypeTable);
                 return jstr;
             } catch (e) {
                 log('TAME library error: Could not convert the Data Type Table to JSON:' + e);
@@ -3626,7 +3626,7 @@ TAME.WebServiceClient = function (service) {
             try {
                 dataTypeTable = JSON.parse(jstr);
             } catch (e) {
-                log('TAME library error: Could not create the Symbol Table from JSON:' + e);
+                log('TAME library error: Could not create the Data Type Table from JSON:' + e);
                 return;
             }
             dataTypeTableOk = true;
@@ -4019,7 +4019,8 @@ TAME.WebServiceClient = function (service) {
  
         
         //Get the information about the PLC and the routing
-        if (true) {
+        if (typeof service.amsNetId !== 'string' || typeof service.amsPort !== 'string' || alignment === 0) {
+            log('TAME library info: Start reading the service information from the TPY file.');
             try {
                 serviceInfo = {
                     netId: configFile.getElementsByTagName('NetId')[0].childNodes[0].nodeValue,
@@ -4035,16 +4036,19 @@ TAME.WebServiceClient = function (service) {
                 } else {
                     log('TAME library error: Could not determine the TwinCAT version.');
                 }
-        
+                log('TAME library info: End of reading the service information from the TPY file.');
             } catch(e) {
                 log('TAME library error: An error occured while reading service information from the TPY file:');
                 log(e);
             }
+        } else {
+            log('TAME library info: NetId, port and alignment manually set. Skip reading the service information from the TPY file.');
         }
         
 
         //Create the symbol table
         if (service.forceUploadUsage !== true) {
+            log('TAME library info: Start reading the symbols from the TPY file.');
             try {           
                 //Create an Array of the Elements with "Symbol" as tag name.
                 allSymbols = configFile.getElementsByTagName('Symbols')[0];
@@ -4151,6 +4155,7 @@ TAME.WebServiceClient = function (service) {
         var allDataTypes, dataTypeArray, subItemArray, sName , fullName;
         
         if (true) {
+            log('TAME library info: Start reading the data types from the TPY file.');
             try {            
                 //Create an Array of the Elements with "DataType" as tag name.
                 allDataTypes = configFile.getElementsByTagName('DataTypes')[0];
@@ -4282,6 +4287,8 @@ TAME.WebServiceClient = function (service) {
    
             } catch(e) {
                 log('TAME library error: An error occured while creating the data type information:');
+                log('Type: ' + fullName);
+                log('SubItem: ' + sName);
                 log(e);
             }
         }
@@ -4295,28 +4302,29 @@ TAME.WebServiceClient = function (service) {
     function setServiceParamFromTPY() {
         if (typeof service.amsNetId !== 'string') {
             service.amsNetId = serviceInfo.netId;
-            log('TAME library info: NetId from TPY file is used: ' + service.amsNetId);
+            log('TAME library info: No NetId definition found. NetId from TPY file is used.');
         }
+        
         if (typeof service.amsPort !== 'string') {
             service.amsPort = serviceInfo.port;
-            log('TAME library info: AMS port number from TPY file is used: ' + service.amsPort);
+            log('TAME library info: No AMS port definition found. Port number from TPY file is used.');
         }
+        
         if (alignment === 0) {
             if (serviceInfo.alignment !== undefined) {
                 alignment = serviceInfo.alignment;
-                log('TAME library info: Alignment from TPY file is used and set to: ' + alignment);
+                log('TAME library info: No alignment parameter found. Alignment from TPY file is used.');
             } else {
                 alignment = 1;
                 log('TAME library warning: Can\'t get a value for the data aligment. Default value for alignment is used (1). This works only with TC2 and x86 processors.');
             }
-            
-        } else {
-            log('TAME library info: Data alignment manually set to: ' + alignment);
         }
-    
+       
         if (alignment !== 1 && alignment !== 4 && alignment !== 8) {
             log('TAME library warning: The value for the alignment should be 1, 4 or 8.');
         }
+        
+        log('TAME library info: Target information: NetId: ' + service.amsNetId + ', AMS port: ' + service.amsPort + ' , alignment: ' + alignment);
     };
  
     
@@ -4334,13 +4342,16 @@ TAME.WebServiceClient = function (service) {
      * Get the names of the PLC variables using the upload info.
      */
     if (service.dontFetchSymbols === true) {
-        log('TAME library info: Reading of the UploadInfo and the config file deactivated. Symbol Table could not be created.');
+        log('TAME library info: Reading of the UploadInfo and the TPY file deactivated. Symbol Table could not be created.');
     } else {
         if (typeof service.configFileUrl == 'string') {
             log('TAME library info: Fetching the TPY file from the webserver.');
             //Get the symbol file and parse it.
             getConfigFile();
-        } 
+        }
+        
+        setServiceParamFromTPY();
+        
         if (typeof service.configFileUrl != 'string' || service.forceUploadUsage === true) {
             log('TAME library info: Start fetching the symbols from PLC.');
             //Get the UploadInfo.
@@ -4351,7 +4362,6 @@ TAME.WebServiceClient = function (service) {
                 return;
             }
         }
-        setServiceParamFromTPY();
     }
     
 };
