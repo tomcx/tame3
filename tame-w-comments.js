@@ -611,17 +611,6 @@ TAME.WebServiceClient = function (service) {
                     itemInfo.type = dataTypeTable[dataType].subItems[typeArray[i]].type;
                 }
 
-                if (itemInfo.type === 'STRING') {
-                    itemInfo.stringLength = dataTypeTable[dataType].subItems[typeArray[i]].stringLength;
-                    itemInfo.format = itemInfo.stringLength; //compatibility
-                } else if (typeof item.format === 'string') {
-                    itemInfo.format = item.format;
-                } else if (typeof item.decPlaces  === 'number') {
-                    itemInfo.format = item.decPlaces;
-                } else if (typeof item.dp  === 'number') {
-                    itemInfo.format = item.dp;
-                }
-
                 itemInfo.arrayLength = dataTypeTable[dataType].subItems[typeArray[i]].arrayLength;
                 itemInfo.arrayDataType = dataTypeTable[dataType].subItems[typeArray[i]].arrayDataType;
                 itemInfo.dataType = dataTypeTable[dataType].subItems[typeArray[i]].dataType;
@@ -633,6 +622,17 @@ TAME.WebServiceClient = function (service) {
                 
                 itemInfo.bitOffset = dataTypeTable[dataType].subItems[typeArray[i]].bitOffset;
                 itemInfo.offs = item.offs;
+                
+                if (itemInfo.type === 'STRING' || itemInfo.arrayDataType === 'STRING') {
+                    itemInfo.stringLength = dataTypeTable[dataType].subItems[typeArray[i]].stringLength;
+                    itemInfo.format = itemInfo.stringLength; //compatibility
+                } else if (typeof item.format === 'string') {
+                    itemInfo.format = item.format;
+                } else if (typeof item.decPlaces  === 'number') {
+                    itemInfo.format = item.decPlaces;
+                } else if (typeof item.dp  === 'number') {
+                    itemInfo.format = item.dp;
+                }
 
                 if (itemInfo.dataTypeArrIdx[i] !== undefined && itemInfo.type === 'ARRAY') {
                     itemInfo.type = dataTypeTable[dataType].subItems[typeArray[i]].arrayDataType;
@@ -652,16 +652,6 @@ TAME.WebServiceClient = function (service) {
                 if (item.type === undefined) {
                     itemInfo.type = symTable[itemInfo.symbolName].type;
                 }
-                if (itemInfo.type === 'STRING') {
-                    itemInfo.stringLength = symTable[itemInfo.symbolName].stringLength;
-                    itemInfo.format = itemInfo.stringLength; //compatibility
-                } else if (typeof item.format === 'string') {
-                    itemInfo.format = item.format;
-                } else if (typeof item.decPlaces  === 'number') {
-                    itemInfo.format = item.decPlaces;
-                } else if (typeof item.dp  === 'number') {
-                    itemInfo.format = item.dp;
-                }
 
                 itemInfo.arrayLength = symTable[itemInfo.symbolName].arrayLength;
                 itemInfo.arrayDataType = symTable[itemInfo.symbolName].arrayDataType;
@@ -674,6 +664,17 @@ TAME.WebServiceClient = function (service) {
                 
                 itemInfo.bitOffset = symTable[itemInfo.symbolName].bitOffset;
                 itemInfo.offs = item.offs;
+                
+                if (itemInfo.type === 'STRING' || itemInfo.arrayDataType === 'STRING') {
+                    itemInfo.stringLength = symTable[itemInfo.symbolName].stringLength;
+                    itemInfo.format = itemInfo.stringLength; //compatibility
+                } else if (typeof item.format === 'string') {
+                    itemInfo.format = item.format;
+                } else if (typeof item.decPlaces  === 'number') {
+                    itemInfo.format = item.decPlaces;
+                } else if (typeof item.dp  === 'number') {
+                    itemInfo.format = item.dp;
+                }
                 
                 if (itemInfo.symbolNameArrIdx !== undefined && itemInfo.type === 'ARRAY') {
                     itemInfo.type = symTable[itemInfo.symbolName].arrayDataType;
@@ -2772,7 +2773,7 @@ TAME.WebServiceClient = function (service) {
          */
         function createSimpleArr() {
             len = plcTypeLen[type];
-                      
+                   
             switch (type) {
                 case 'STRING':
                     if (isValidStringLen(args.strlen)) {
