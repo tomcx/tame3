@@ -540,7 +540,10 @@ TAME.WebServiceClient = function (service) {
         if (typeof item.name === 'string') {
             item.name = item.name.toUpperCase();
             arrPlcVarName = item.name.split('.');
-        }
+        } else {
+            //Return if no symbol name is given
+            return itemInfo;
+        };
 
         //Get the symbol name.
         if (arrPlcVarName[0] === '') {
