@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
     <link href='https://fonts.googleapis.com/css?family=Chivo:900' rel='stylesheet' type='text/css'>
     <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
-    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-dark.css" media="screen">
     <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
     <!--[if lt IE 9]>
     <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
@@ -31,7 +31,7 @@
         <hr>
 
         <section id="main_content">
-          <p><strong>Current version: V3.4</strong></p>
+          <p><strong>Current version: V3.5</strong></p>
 
 <h2>
 <a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction</h2>
@@ -45,7 +45,7 @@
 
 <p>Link the library in your project like any other JavaScript file and create the client like this:</p>
 
-<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> Plc <span class="pl-k">=</span>  TAME.WebServiceClient.createClient({
+<div class="highlight highlight-source-js"><pre><span class="pl-k">var</span> Plc <span class="pl-k">=</span>  <span class="pl-c1">TAME</span>.WebServiceClient.createClient({
     serviceUrl<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>http://192.168.1.2/TcAdsWebService/TcAdsWebService.dll<span class="pl-pds">'</span></span>,
     amsNetId<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>192.168.1.2.1.1<span class="pl-pds">'</span></span>
 });</pre></div>
@@ -54,15 +54,15 @@
 
 <p>To write a boolean variable to the PLC you just have to write one line of code:</p>
 
-<div class="highlight highlight-javascript"><pre>Plc.writeBool({name<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">"</span>MAIN.MyBoolVar<span class="pl-pds">"</span></span>, val<span class="pl-k">:</span> <span class="pl-c1">true</span>});</pre></div>
+<div class="highlight highlight-source-js"><pre>Plc.writeBool({name<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">"</span>MAIN.MyBoolVar<span class="pl-pds">"</span></span>, val<span class="pl-k">:</span> <span class="pl-c1">true</span>});</pre></div>
 
 <p>Reading a PLC variable and storing the value in a (global) JavaScript variable is also quite easy:</p>
 
-<div class="highlight highlight-javascript"><pre>Plc.readBool({name<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">"</span>MAIN.MyBoolVar<span class="pl-pds">"</span></span>, jvar<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">"</span>myVar<span class="pl-pds">"</span></span>});</pre></div>
+<div class="highlight highlight-source-js"><pre>Plc.readBool({name<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">"</span>MAIN.MyBoolVar<span class="pl-pds">"</span></span>, jvar<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">"</span>myVar<span class="pl-pds">"</span></span>});</pre></div>
 
 <p>A more complex example of reading multiple variables with a function executed after the request has successfully finished:</p>
 
-<div class="highlight highlight-javascript"><pre>Plc.sumReadReq({
+<div class="highlight highlight-source-js"><pre>Plc.sumReadReq({
     items<span class="pl-k">:</span> [
         {
             name<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>MAIN.Ramp1<span class="pl-pds">'</span></span>,
@@ -93,7 +93,7 @@
             jvar<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>field6.data<span class="pl-pds">'</span></span>
         }
     ],
-    <span class="pl-en">oc</span>: <span class="pl-k">function</span>() {
+    <span class="pl-en">oc</span><span class="pl-k">:</span> <span class="pl-k">function</span>() {
         <span class="pl-c">//Set the background-color after reading data</span>
         <span class="pl-k">for</span> (<span class="pl-k">var</span> i <span class="pl-k">=</span> <span class="pl-c1">0</span>; i <span class="pl-k">&lt;</span> <span class="pl-c1">5</span>; i<span class="pl-k">++</span>) {
             <span class="pl-k">if</span> (runLight[i] <span class="pl-k">===</span> <span class="pl-c1">true</span>) {
