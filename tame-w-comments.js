@@ -177,7 +177,10 @@ TAME.WebServiceClient = function (service) {
         serviceInfo = {},
         
         //Variables of the UploadInfo 
-        symbolCount = 0, uploadLength = 0;
+        symbolCount = 0, uploadLength = 0
+        
+        //Object to store the handles
+        handleCache = {};
 
     
     
