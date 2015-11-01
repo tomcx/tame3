@@ -183,7 +183,8 @@ TAME.WebServiceClient = function (service) {
         symbolCount = 0, uploadLength = 0,
         
         //Object to store the handles
-        handleCache = {};
+        handleCache = {},
+        handleNames = [];
 
     
     
@@ -2448,7 +2449,7 @@ TAME.WebServiceClient = function (service) {
     function parseHandles(adsReq) {
         
         var response,
-        arrSymNames = adsReq.reqDescr.arrSymNames,
+        arrSymNames = handleNames,
         strAddr = 0,
         subStrAddr = 0,
         symbolName, dataString, dataSubString, handleVal, idx, arrlen, errorCode, returnLen;        
@@ -3805,10 +3806,12 @@ TAME.WebServiceClient = function (service) {
             idx, len, pwrData, format, symname, i;
                  
         //Read lenth with the number of byte for error codes.
-        //4 bytes requested data, 4 bytes for errorcode and 4 bytes length for the TwinCAT symbol
+        //4 bytes requested data, 4 bytes for errorcode and 4 bytes for the length
         //reqDescr.readLength = listlen * 4 + listlen * 8;
         reqDescr.readLength = listlen * 12;
-        reqDescr.arrSymNames = arrSymNames;
+        
+        //Store the names of the symbols
+        handleNames = arrSymNames;
 
         //Build the Request Buffer
         for (idx = 0; idx < listlen; idx++) {
@@ -3829,7 +3832,6 @@ TAME.WebServiceClient = function (service) {
             //String length
             bytes = numToByteArr(arrSymNames[idx].length, 4);
             reqBuffer = reqBuffer.concat(bytes);
-            
         }
         
         //Add symbol names
@@ -3860,7 +3862,60 @@ TAME.WebServiceClient = function (service) {
         createRequest(adsReq).send();
         
     };
-
+    
+    
+    /**
+     * This is the function for releasing the cached handles.
+     * 
+     */
+    this.releaseHandles = function() {
+        var adsReq = {},
+            reqBuffer = [],
+            bytes = [],
+            listlen = handleNames.length,
+            idx, pwrData;
+         
+        //Preset the read length with the number of byte for error codes.
+        reqDescr.readLength = listlen * 4;
+    
+        //Write the general command information to the Request Buffer
+        for (idx = 0; idx < listlen; idx++) {
+            
+            //Build the request buffer.
+            //IndexGroup
+            bytes = numToByteArr(indexGroups.ReleasHandle, 4);
+            reqBuffer = reqBuffer.concat(bytes);
+            
+            //IndexOffset is always 0
+            bytes = numToByteArr(0, 4);
+            reqBuffer = reqBuffer.concat(bytes);
+            
+            //Handle size (4 bytes)
+            bytes = numToByteArr(4, 4);
+            reqBuffer = reqBuffer.concat(bytes);
+        }
+        
+        //Add handles codes
+        for (idx = 0; idx < listlen; idx++) {               
+            bytes = numToByteArr(handleCache[handleNames[idx]], 4);
+            reqBuffer = reqBuffer.concat(bytes);        
+        }
+              
+        //Convert the request buffer to Base64 coded data.
+        if (reqBuffer.length > 0) {
+            pwrData = encodeBase64(reqBuffer);
+        }
+        
+        //Generate the ADS request object and call the send function.
+        adsReq = {
+            method: 'ReadWrite',
+            indexGroup: indexGroups.SumWr,
+            indexOffset: listlen,
+            pwrData: pwrData,
+            reqDescr: reqDescr
+        };
+        createRequest(adsReq).send();
+    };
 
     /**
      * The shortcuts for reading and writing data.
