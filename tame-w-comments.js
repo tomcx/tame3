@@ -2449,123 +2449,49 @@ TAME.WebServiceClient = function (service) {
         
         var response,
         arrSymNames = adsReq.reqDescr.arrSymNames,
-        arrType = [],
         strAddr = 0,
         subStrAddr = 0,
-        dataObj = window,
-        vlenMax = 0,
-        symbolName, dataString, dataSubString, data, len, type, format, idx, arrlen, errorCode, jvar, i,
-        arrayLength, itemSize, itemInfo;
-        
-        
-        /**
-         * Slice a piece out of the substring, convert the data and write it
-         * to the JavaScript variable.  
-         */
-        function parseSubStringSlice() {
-            
-            var strlen, subStrSlice;
-
-            if (type === 'STRING') {
-                if (format !== undefined) {
-                    strlen = parseInt(format, 10);
-                } else if (typeof itemInfo.stringLength === 'number') {
-                    strlen = itemInfo.stringLength;
-                }
-                len = (isValidStringLen(strlen) ? strlen : len) + 1;             
-            }
-            
-            //Take a piece of the data sub string
-            subStrSlice = dataSubString.substr(subStrAddr, len);
-            //Convert the data
-            data = subStringToData(subStrSlice, type, format);
-            //Parse the name of the JavaScript variable and write the data to it
-            parseVarName(jvar, data, dataObj, item.prefix, item.suffix);
-
-            subStrAddr += len;
-        }
-        
+        symbolName, dataString, dataSubString, handleVal, idx, arrlen, errorCode, returnLen;        
 
     
         try {
             response = adsReq.xmlHttpReq.responseXML.documentElement;
             dataString = decodeBase64(response.getElementsByTagName('ppRdData')[0].firstChild.data);
             
-            //Read the error codes of the ADS sub commands.
+            //Read the error codes and the return length of the ADS sub commands.
             for (idx = 0, arrlen = arrSymNames.length; idx < arrlen; idx++) {
                 
                 dataSubString = dataString.substr(strAddr, 4);
                 errorCode = subStringToData(dataSubString, 'DWORD');
+                strAddr += 4;
+                
+                dataSubString = dataString.substr(strAddr, 4);
+                returnLen = subStringToData(dataSubString, 'DWORD');
+                strAddr += 4;                
                 
                 if (errorCode !== 0) {
-                    log('TAME library error: ADS sub command error while processing a SumReadRequest!');
+                    log('TAME library error: Error while reading a handle from the PLC!');
                     log('Error code: ' + errorCode);
-                    log(arrSymNames[idx]);
+                    log('Handle: ' + arrSymNames[idx]);
                 }
-                
-                strAddr += 4;
             }
             
-            
-            //Run through the elements in the symbolName list.
+            //Run through the elements in the symbolName list,
+            //get the data out of the string an store it in the cache.
             for (idx = 0; idx < arrlen; idx++) {
                 
                 symbolName = arrSymNames[idx];
                 
-                itemInfo = getItemInformation(item);
-                
-                //Get type and formatting string.
-                type = itemInfo.type;
-                format = itemInfo.format;
-
-                //Get the length of the data types.
-                itemSize = itemInfo.size;
-                
-                //Reset counter for arrays.
-                i = null;
-                
                 //Slice the string and decode the data
-                dataSubString = dataString.substr(strAddr, itemSize);
+                dataSubString = dataString.substr(strAddr, 4);
+                handleVal = subStringToData(dataSubString, 'DWORD');
+                strAddr += 4;
                 
-                switch (type) {
-                    
-                    case 'ARRAY':
-                        dataObj = parseVarName(item.jvar);
-                        subStrAddr = 0;
-                        arrayLength = itemInfo.arrayLength;
-                        if (itemInfo.arrayDataType === 'USER') {
-                            for (i = 0; i < arrayLength; i++) {
-                                parseStructure();
-                            }                            
-                        } else {
-                            type = itemInfo.arrayDataType;
-                            len = plcTypeLen[type];
-                            for (i = 0; i < arrayLength; i++) {
-                                jvar = i;
-                                parseSubStringSlice();
-                            }
-                        }
-                        break;
-                    case 'USER' :
-                        dataObj = parseVarName(item.jvar);
-                        subStrAddr = 0;
-                        parseStructure();
-                        break;
-                    default:
-                        //Convert the data
-                        dataObj = window;
-                        data = subStringToData(dataSubString, type, format);
-                        //Parse the name of the JavaScript variable and write the data to it
-                        parseVarName(item.jvar, data, dataObj, item.prefix, item.suffix);
-                        
-                }
-               //Set the next string address
-                strAddr += itemSize;
-                
+                handleCache[symbolName] = handleVal;
             }
+            
         } catch (e) {
-            log('TAME library error: Parsing of SumReadRequest failed:' + e);
-            log(item);
+            log('TAME library error: Parsing of a Handle Request failed:' + e);
             return;
         }
     }
@@ -3843,6 +3769,9 @@ TAME.WebServiceClient = function (service) {
                 case indexGroups.SumWr:
                     parseSumWriteReq(adsReq);
                     break;
+                case indexGroups.SumRdWr:
+                    parseHandles(adsReq);
+                    break;    
                 default:
                     parseReadReq(adsReq); 
             }
