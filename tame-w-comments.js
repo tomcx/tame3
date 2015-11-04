@@ -3878,6 +3878,7 @@ TAME.WebServiceClient = function (service) {
         var adsReq = {},
             reqBuffer = [],
             bytes = [],
+            reqDescr = {},
             listlen = handleNames.length,
             idx, pwrData;
          
