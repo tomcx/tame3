@@ -3600,7 +3600,13 @@ TAME.WebServiceClient = function (service) {
         createRequest(adsReq).send();
     };
 
-
+    /**
+     *  Prints the cached handles to the console.
+     */
+    this.logHandleCache = function() {
+        log(handleCache);
+    };
+    
     /**
      *  Prints the symbol table to the console.
      */
