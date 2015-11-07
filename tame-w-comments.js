@@ -1,5 +1,5 @@
 /*!
- * TAME [TwinCAT ADS Made Easy] V4.0 alpha
+ * TAME [TwinCAT ADS Made Easy] V3.6 alpha
  * 
  * Copyright (c) 2009-2015 Thomas Schmidt; t.schmidt.p1 at freenet.de
  * 
@@ -174,9 +174,9 @@ TAME.WebServiceClient = function (service) {
         
         //The Symbol Table for accessing variables per name.
         symTable = {},
-        symTableOk = false,
+        //symTableOk = false,
         dataTypeTable = {},
-        dataTypeTableOk = false,
+        //dataTypeTableOk = false,
         serviceInfo = {},
         
         //Variables of the UploadInfo 
@@ -271,6 +271,12 @@ TAME.WebServiceClient = function (service) {
     this.adsState = null;
     this.adsStateTxt = '';
     this.deviceState = null;
+    
+    //Ready states
+    this.symTableReady = false;
+    this.dataTypeTableReady = false;
+    this.handleCacheReady = false;
+
     
         
     
@@ -585,7 +591,7 @@ TAME.WebServiceClient = function (service) {
             itemInfo.size = plcTypeLen[item.type];
         }
 
-        if (symTableOk && dataTypeTableOk && itemInfo.dataTypeNames.length > 0) {
+        if (instance.symTableReady && instance.dataTypeTableReady && itemInfo.dataTypeNames.length > 0) {
             //Try to get the subitem type from the symbol table / data type table
             typeArray = itemInfo.dataTypeNames;
             dataType = symTable[itemInfo.symbolName].dataType;
@@ -656,7 +662,7 @@ TAME.WebServiceClient = function (service) {
             }
             
             
-        } else if (symTableOk) {
+        } else if (instance.symTableReady) {
             //Try to get the type from the symbol table
             try {
                 if (item.type === undefined) {
@@ -2225,7 +2231,7 @@ TAME.WebServiceClient = function (service) {
             //Check structure definition
             if (typeof item.def === 'string') {
                 item.def = parseVarName(item.def);
-            } else if (dataTypeTableOk === true && item.def === undefined) {
+            } else if (instance.dataTypeTableReady === true && item.def === undefined) {
                 item.def = createStructDef(itemInfo.dataType);
             } else if (typeof item.def !== 'object') {
                 log('TAME library error: No structure defininition found!');
@@ -2452,7 +2458,7 @@ TAME.WebServiceClient = function (service) {
         arrSymNames = handleNames,
         strAddr = 0,
         subStrAddr = 0,
-        symbolName, dataString, dataSubString, handleVal, idx, arrlen, errorCode, returnLen;        
+        dataString, dataSubString, handleVal, idx, arrlen, errorCode, returnLen;        
 
     
         try {
@@ -2481,14 +2487,12 @@ TAME.WebServiceClient = function (service) {
             //get the data out of the string an store it in the cache.
             for (idx = 0; idx < arrlen; idx++) {
                 
-                symbolName = arrSymNames[idx];
-                
                 //Slice the string and decode the data
                 dataSubString = dataString.substr(strAddr, 4);
                 handleVal = subStringToData(dataSubString, 'DWORD');
                 strAddr += 4;
                 
-                handleCache[symbolName] = handleVal;
+                handleCache[arrSymNames[idx]] = handleVal;
             }
             
         } catch (e) {
@@ -2665,7 +2669,7 @@ TAME.WebServiceClient = function (service) {
             //as a string.
             if (typeof args.def === 'string') {
                 args.def = parseVarName(args.def);
-            } else if (dataTypeTableOk === true && args.def === undefined) {
+            } else if (instance.dataTypeTableReady === true && args.def === undefined) {
                 args.def = createStructDef(itemInfo.dataType);
             } else if (typeof args.def !== 'object') {
                 log('TAME library error: No structure definition found!');
@@ -2971,7 +2975,7 @@ TAME.WebServiceClient = function (service) {
         //as a string.
         if (typeof args.def === 'string') {
             args.def = parseVarName(args.def);
-        } else if (dataTypeTableOk === true && args.def === undefined) {
+        } else if (instance.dataTypeTableReady === true && args.def === undefined) {
             args.def = createStructDef(itemInfo.dataType);
         } else if (typeof args.def !== 'object') {
             log('TAME library error: No structure defininition found!');
@@ -3371,7 +3375,7 @@ TAME.WebServiceClient = function (service) {
             //Check structure definition
             if (typeof item.def === 'string') {
                 item.def = parseVarName(item.def);
-            } else if (dataTypeTableOk === true && item.def === undefined) {
+            } else if (instance.dataTypeTableReady === true && item.def === undefined) {
                 item.def = createStructDef(itemInfo.dataType);
             } else if (typeof item.def !== 'object') {
                 log('TAME library error: No structure defininition found!');
@@ -3659,7 +3663,7 @@ TAME.WebServiceClient = function (service) {
                 log('TAME library error: Could not create the Symbol Table from JSON:' + e);
                 return;
             }
-            symTableOk = true;
+            instance.symTableReady = true;
             log('TAME library info: Symbol Table successfully created from JSON data.');
         }
     };
@@ -3701,7 +3705,7 @@ TAME.WebServiceClient = function (service) {
                 log('TAME library error: Could not create the Data Type Table from JSON:' + e);
                 return;
             }
-            dataTypeTableOk = true;
+            instance.dataTypeTableReady = true;
             log('TAME library info: Data Type Table successfully created from JSON data.');
         }
     };
@@ -3801,26 +3805,20 @@ TAME.WebServiceClient = function (service) {
      * 
      * @param {Array} arrSymNames   Array with the symbol names.
      */
-    this.getHandles = function (arrSymNames) {
+    this.getHandles = function (reqDescr) {
         
         var adsReq = {},
             reqBuffer = [],
             bytes = [],
-            listlen  = arrSymNames.length,
-            dummy = {},
-            reqDescr = {},
+            arrlen  = reqDescr.symbols.length,
             idx, len, pwrData, format, symname, i;
                  
         //Read lenth with the number of byte for error codes.
         //4 bytes requested data, 4 bytes for errorcode and 4 bytes for the length
-        //reqDescr.readLength = listlen * 4 + listlen * 8;
-        reqDescr.readLength = listlen * 12;
+        reqDescr.readLength = arrlen * 12;
         
-        //Store the names of the symbols
-        handleNames = arrSymNames;
-
         //Build the Request Buffer
-        for (idx = 0; idx < listlen; idx++) {
+        for (idx = 0; idx < arrlen; idx++) {
                      
             //Build the request buffer.
             //IndexGroup
@@ -3836,18 +3834,20 @@ TAME.WebServiceClient = function (service) {
             reqBuffer = reqBuffer.concat(bytes);
             
             //String length
-            bytes = numToByteArr(arrSymNames[idx].length, 4);
+            bytes = numToByteArr(reqDescr.symbols[idx].length, 4);
             reqBuffer = reqBuffer.concat(bytes);
         }
         
         //Add symbol names
-        for (idx = 0; idx < listlen; idx++) {               
-            symname = arrSymNames[idx];
+        for (idx = 0; idx < arrlen; idx++) {       
+            symname = reqDescr.symbols[idx].toUpperCase();
+            
+            //Store it for later use
+            handleNames[idx] = symname;
             
             for (i = 0; i < symname.length; i++) {
                 bytes[i] = symname.charCodeAt(i);
             }
-            
             reqBuffer = reqBuffer.concat(bytes);        
         }
         
@@ -3861,12 +3861,11 @@ TAME.WebServiceClient = function (service) {
         adsReq = {
             method: 'ReadWrite',
             indexGroup: indexGroups.SumRdWr,
-            indexOffset: arrSymNames.length,
+            indexOffset: arrlen,
             pwrData: pwrData,
             reqDescr: reqDescr
         };
         createRequest(adsReq).send();
-        
     };
     
     
@@ -3879,14 +3878,14 @@ TAME.WebServiceClient = function (service) {
             reqBuffer = [],
             bytes = [],
             reqDescr = {},
-            listlen = handleNames.length,
+            arrlen = handleNames.length,
             idx, pwrData;
          
         //Preset the read length with the number of byte for error codes.
-        reqDescr.readLength = listlen * 4;
+        reqDescr.readLength = arrlen * 4;
     
         //Write the general command information to the Request Buffer
-        for (idx = 0; idx < listlen; idx++) {
+        for (idx = 0; idx < arrlen; idx++) {
             
             //Build the request buffer.
             //IndexGroup
@@ -3903,7 +3902,7 @@ TAME.WebServiceClient = function (service) {
         }
         
         //Add handles codes
-        for (idx = 0; idx < listlen; idx++) {               
+        for (idx = 0; idx < arrlen; idx++) {               
             bytes = numToByteArr(handleCache[handleNames[idx]], 4);
             reqBuffer = reqBuffer.concat(bytes);        
         }
@@ -3917,7 +3916,7 @@ TAME.WebServiceClient = function (service) {
         adsReq = {
             method: 'ReadWrite',
             indexGroup: indexGroups.SumWr,
-            indexOffset: listlen,
+            indexOffset: arrlen,
             pwrData: pwrData,
             reqDescr: reqDescr
         };
@@ -4177,7 +4176,7 @@ TAME.WebServiceClient = function (service) {
                 
                 strAddr += infoLen;
             }
-            symTableOk = true;
+            instance.symTableReady = true;
              
             log('TAME library info: End of fetching the symbols.');
             log('TAME library info: Symbol table ready.');
@@ -4340,7 +4339,7 @@ TAME.WebServiceClient = function (service) {
                     }
                 }
                 
-                symTableOk = true;
+                instance.symTableReady = true;
                 
                 log('TAME library info: End of reading the symbols from the TPY file.');
                 log('TAME library info: Symbol table ready.');
@@ -4483,7 +4482,7 @@ TAME.WebServiceClient = function (service) {
                     }
                     
                 }
-                dataTypeTableOk = true;       
+                instance.dataTypeTableReady = true;       
 
                 log('TAME library info: End of reading the data types from the TPY file.');
                 log('TAME library info: Data type table ready.');
