@@ -3889,7 +3889,7 @@ TAME.WebServiceClient = function (service) {
             
             //Build the request buffer.
             //IndexGroup
-            bytes = numToByteArr(indexGroups.ReleasHandle, 4);
+            bytes = numToByteArr(indexGroups.ReleaseHandle, 4);
             reqBuffer = reqBuffer.concat(bytes);
             
             //IndexOffset is always 0
@@ -3911,6 +3911,9 @@ TAME.WebServiceClient = function (service) {
         if (reqBuffer.length > 0) {
             pwrData = encodeBase64(reqBuffer);
         }
+        
+        //Add the symbol names for parsing the response
+        reqDescr.items = handleNames;
         
         //Generate the ADS request object and call the send function.
         adsReq = {
