@@ -2428,7 +2428,7 @@ TAME.WebServiceClient = function (service) {
             //Release handles request?
             if (adsReq.reqDescr.isRelHdlReq === true) {
                 //Remove deleted items
-                for (idx = handleNames.length - 1; i >= 0; i--) {
+                for (idx = handleNames.length - 1; idx >= 0; idx--) {
                     if (handleNames[idx] === undefined) { 
                         handleNames.splice(idx, 1);
                     }
