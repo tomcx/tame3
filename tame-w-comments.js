@@ -2411,13 +2411,34 @@ TAME.WebServiceClient = function (service) {
                 dataSubString = dataString.substr(strAddr, 4);
                 errorCode = subStringToData(dataSubString, 'DWORD');
                 
-                if (errorCode !== 0) {
+                if (errorCode === 0) {
+                    //Release handles request?
+                    if (adsReq.reqDescr.isRelHdlReq === true) {
+                        delete instance.handleCache[itemList[idx]];
+                        delete instance.handleNames[idx];
+                    }
+                } else {
                     log('TAME library error: ADS sub command error while processing a SumReadRequest!');
                     log('Error code: ' + errorCode);
                     log(itemList[idx]);
                 }
                 strAddr += 4;
-            }   
+            }
+            
+            //Release handles request?
+            if (adsReq.reqDescr.isRelHdlReq === true) {
+                //Remove deleted items
+                for (idx = instance.handleNames.length - 1; i >= 0; i--) {
+                    if (instance.handleNames[idx] === undefined) { 
+                        instance.handleNames.splice(idx, 1);
+                    }
+                }
+                if (instance.handleNames.length === 0) {
+                    instance.handleCacheReady = false;
+                }
+            }
+            
+            
         } catch (e) {
             log('TAME library error: Parsing of SumWriteRequest failed:' + e);
             log(item);
@@ -2494,6 +2515,8 @@ TAME.WebServiceClient = function (service) {
                 
                 handleCache[arrSymNames[idx]] = handleVal;
             }
+            
+            instance.handleCacheReady = true;
             
         } catch (e) {
             log('TAME library error: Parsing of a Handle Request failed:' + e);
@@ -3914,6 +3937,9 @@ TAME.WebServiceClient = function (service) {
         
         //Add the symbol names for parsing the response
         reqDescr.items = handleNames;
+        
+        //This is a Release Handles Request
+        reqDescr.isRelHdlReq = true;
         
         //Generate the ADS request object and call the send function.
         adsReq = {
