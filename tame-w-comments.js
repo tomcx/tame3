@@ -2397,7 +2397,7 @@ TAME.WebServiceClient = function (service) {
         strAddr = 0,
         subStrAddr = 0,
         dataObj = window,
-        item, dataString, dataSubString, data, len, type, format, idx, listlen, errorCode;
+        item, dataString, dataSubString, data, len, type, format, idx, listlen, errorCode, delIdx, symName;
         
         
         //Just look for errors.
@@ -2410,12 +2410,16 @@ TAME.WebServiceClient = function (service) {
                 
                 dataSubString = dataString.substr(strAddr, 4);
                 errorCode = subStringToData(dataSubString, 'DWORD');
-                
+
                 if (errorCode === 0) {
                     //Release handles request?
                     if (adsReq.reqDescr.isRelHdlReq === true) {
-                        delete handleCache[itemList[idx]];
-                        delete handleNames[idx];
+                        symName = itemList[idx].toUpperCase();
+                        //Remove the handle from the cache
+                        delete handleCache[symName];
+                        //Delete the handle in the handle list
+                        delIdx = handleNames.indexOf(symName);
+                        delete handleNames[delIdx];
                     }
                 } else {
                     log('TAME library error: ADS sub command error while processing a SumReadRequest!');
@@ -2435,10 +2439,9 @@ TAME.WebServiceClient = function (service) {
                 }
                 if (handleNames.length === 0) {
                     instance.handleCacheReady = false;
+                    log('TAME library info: All handles released.');
                 }
             }
-            
-            
         } catch (e) {
             log('TAME library error: Parsing of SumWriteRequest failed:' + e);
             log(item);
@@ -2481,47 +2484,43 @@ TAME.WebServiceClient = function (service) {
         subStrAddr = 0,
         dataString, dataSubString, handleVal, idx, arrlen, errorCode, returnLen;        
 
-    
-        try {
-            response = adsReq.xmlHttpReq.responseXML.documentElement;
-            dataString = decodeBase64(response.getElementsByTagName('ppRdData')[0].firstChild.data);
+        response = adsReq.xmlHttpReq.responseXML.documentElement;
+        dataString = decodeBase64(response.getElementsByTagName('ppRdData')[0].firstChild.data);
+        
+        //Read the error codes and the return length of the ADS sub commands.
+        for (idx = 0, arrlen = arrSymNames.length; idx < arrlen; idx++) {
             
-            //Read the error codes and the return length of the ADS sub commands.
-            for (idx = 0, arrlen = arrSymNames.length; idx < arrlen; idx++) {
-                
-                dataSubString = dataString.substr(strAddr, 4);
-                errorCode = subStringToData(dataSubString, 'DWORD');
-                strAddr += 4;
-                
-                dataSubString = dataString.substr(strAddr, 4);
-                returnLen = subStringToData(dataSubString, 'DWORD');
-                strAddr += 4;                
-                
-                if (errorCode !== 0) {
-                    log('TAME library error: Error while reading a handle from the PLC!');
-                    log('Error code: ' + errorCode);
-                    log('Handle: ' + arrSymNames[idx]);
-                }
+            dataSubString = dataString.substr(strAddr, 4);
+            errorCode = subStringToData(dataSubString, 'DWORD');
+            strAddr += 4;
+            
+            dataSubString = dataString.substr(strAddr, 4);
+            returnLen = subStringToData(dataSubString, 'DWORD');
+            strAddr += 4;                
+            
+            if (errorCode !== 0) {
+                log('TAME library error: Error while reading a handle from the PLC!');
+                log('Error code: ' + errorCode);
+                log('Handle: ' + arrSymNames[idx]);
+                throw 'Handle request aborted!';
             }
-            
-            //Run through the elements in the symbolName list,
-            //get the data out of the string an store it in the cache.
-            for (idx = 0; idx < arrlen; idx++) {
-                
-                //Slice the string and decode the data
-                dataSubString = dataString.substr(strAddr, 4);
-                handleVal = subStringToData(dataSubString, 'DWORD');
-                strAddr += 4;
-                
-                handleCache[arrSymNames[idx]] = handleVal;
-            }
-            
-            instance.handleCacheReady = true;
-            
-        } catch (e) {
-            log('TAME library error: Parsing of a Handle Request failed:' + e);
-            return;
         }
+        
+        //Run through the elements in the symbolName list,
+        //get the data out of the string and store it in the cache.
+        for (idx = 0; idx < arrlen; idx++) {
+            
+            //Slice the string and decode the data
+            dataSubString = dataString.substr(strAddr, 4);
+            handleVal = subStringToData(dataSubString, 'DWORD');
+            strAddr += 4;
+            
+            handleCache[arrSymNames[idx]] = handleVal;
+        }
+        
+        instance.handleCacheReady = true;
+        
+        log('TAME library info: Handle cache ready.');
     }
     
     
@@ -3832,9 +3831,8 @@ TAME.WebServiceClient = function (service) {
         
         var adsReq = {},
             reqBuffer = [],
-            bytes = [],
             arrlen  = reqDescr.symbols.length,
-            idx, len, pwrData, format, symname, i;
+            bytes, idx, len, pwrData, format, symname, i;
                  
         //Read lenth with the number of byte for error codes.
         //4 bytes requested data, 4 bytes for errorcode and 4 bytes for the length
@@ -3868,6 +3866,8 @@ TAME.WebServiceClient = function (service) {
             //Store it for later use
             handleNames[idx] = symname;
             
+            //Add symbol names to the buffer
+            bytes = [];
             for (i = 0; i < symname.length; i++) {
                 bytes[i] = symname.charCodeAt(i);
             }
@@ -3896,14 +3896,31 @@ TAME.WebServiceClient = function (service) {
      * This is the function for releasing the cached handles.
      * 
      */
-    this.releaseHandles = function() {
+    this.releaseHandles = function(reqDescr) {
         var adsReq = {},
             reqBuffer = [],
             bytes = [],
-            reqDescr = {},
-            arrlen = handleNames.length,
+            arrlen = 0,
+            symNames = [],
+            i = 0,
             idx, pwrData;
-         
+            
+        //Check if a request descriptor exists
+        if (reqDescr === undefined) {
+            reqDescr = {};
+        } else {
+            //Check if a user defined handle list exists
+            if (reqDescr.symbols !== undefined) {
+                arrlen = reqDescr.symbols.length;
+                for (idx = 0; idx < arrlen; idx++) {
+                    symNames[idx] = reqDescr.symbols[idx].toUpperCase();                  
+                }
+            } else {
+                arrlen = handleNames.length;
+                symNames = handleNames;
+            }
+        }
+        
         //Preset the read length with the number of byte for error codes.
         reqDescr.readLength = arrlen * 4;
     
@@ -3925,9 +3942,14 @@ TAME.WebServiceClient = function (service) {
         }
         
         //Add handles codes
-        for (idx = 0; idx < arrlen; idx++) {               
-            bytes = numToByteArr(handleCache[handleNames[idx]], 4);
-            reqBuffer = reqBuffer.concat(bytes);        
+        for (idx = 0; idx < arrlen; idx++) {
+            if (typeof handleCache[symNames[idx]] === 'number') {
+                bytes = numToByteArr(handleCache[symNames[idx]], 4);
+                reqBuffer = reqBuffer.concat(bytes);
+            } else {
+                log('TAME library error: Handle for symbol name ' + symNames[idx] + ' does not exist in handle cache!');
+                throw 'Releasing Handles aborted!';
+            }
         }
               
         //Convert the request buffer to Base64 coded data.
@@ -3936,7 +3958,7 @@ TAME.WebServiceClient = function (service) {
         }
         
         //Add the symbol names for parsing the response
-        reqDescr.items = handleNames;
+        reqDescr.items = symNames;
         
         //This is a Release Handles Request
         reqDescr.isRelHdlReq = true;
