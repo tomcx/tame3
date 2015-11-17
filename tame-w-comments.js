@@ -411,6 +411,9 @@ TAME.WebServiceClient = function (service) {
                 log(req);
                 return;
             }
+        } else if (req.useHandle === true || instance.useHandles === true) {
+            //Get the IndexGroup for the Value By Handle Request
+            indexGroup = indexGroups.ValueByHandle;
         } else if (req.symbolName) {
             //Try to get the IndexGroup by name
             if (typeof req.symbolName === 'string') {
@@ -429,7 +432,7 @@ TAME.WebServiceClient = function (service) {
                 return;
             }    
         } else {
-            log('TAME library error: Neither a name nor an address for the variable/request defined!');
+            log('TAME library error: No name, address or handle for the variable/request defined!');
             log(req);
             return;
         }
@@ -471,6 +474,23 @@ TAME.WebServiceClient = function (service) {
                 }
             } else {
                 log('TAME library error: Wrong address definition, should be a string and start with "%"!');
+                log(req);
+                return;
+            }
+        } else if (req.useHandle === true || instance.useHandles === true) {
+            //Try to get the handle for this request
+            if (instance.handleCacheReady === true) {
+                //Get handle code
+                try {
+                    indexOffset = handleCache[req.fullSymbolName];
+                } catch (e) {
+                    log('TAME library error: Could not get the handle for this symbol name!');
+                    log(e);
+                    log(req);
+                    return;
+                }
+            } else {
+                log('TAME library error: Could not get the handle for this request. Handle cache is not ready.');
                 log(req);
                 return;
             }
@@ -573,6 +593,7 @@ TAME.WebServiceClient = function (service) {
             itemInfo.symbolName = splitType[0];
             itemInfo.symbolNameArrIdx = parseInt(splitType[1], 10);
         }
+        
         
         //Leave the rest as an array and add it to the itemInfo
         itemInfo.dataTypeNames = arrPlcVarName.slice(2);
@@ -702,13 +723,12 @@ TAME.WebServiceClient = function (service) {
                 log(e);
                 log(item);
             }
-            
 
-            
         } else {
             log('TAME library error: Could not get the type of the item!');
             log(item);
         }
+
         return itemInfo;
         
     }
@@ -2585,11 +2605,12 @@ TAME.WebServiceClient = function (service) {
         //Create the Request Descriptor.
         reqDescr = {
             addr: args.addr,
-            //name: args.name,
             symbolName: itemInfo.symbolName,
             dataTypeNames: itemInfo.dataTypeNames,
             dataTypeArrIdx: itemInfo.dataTypeArrIdx,
             symbolNameArrIdx: itemInfo.symbolNameArrIdx,
+            fullSymbolName: args.name,
+            useHandle: args.handle,
             id: args.id,
             oc: args.oc,
             ocd: args.ocd,
@@ -2764,7 +2785,9 @@ TAME.WebServiceClient = function (service) {
                 addr: args.addr,
                 symbolName: itemInfo.symbolName,
                 dataTypeNames: itemInfo.dataTypeNames,
+                fullSymbolName: args.name,
                 addrOffset: addrOffset,
+                useHandle: args.handle,
                 id: args.id,
                 oc: args.oc,
                 ocd: args.ocd,
@@ -2916,6 +2939,8 @@ TAME.WebServiceClient = function (service) {
                 dataTypeNames: itemInfo.dataTypeNames,
                 dataTypeArrIdx: itemInfo.dataTypeArrIdx,
                 symbolNameArrIdx: itemInfo.symbolNameArrIdx,
+                fullSymbolName: args.name,
+                useHandle: args.handle,
                 addrOffset: addrOffset,
                 id: args.id,
                 oc: args.oc,
@@ -3009,6 +3034,8 @@ TAME.WebServiceClient = function (service) {
             dataTypeNames: itemInfo.dataTypeNames,
             dataTypeArrIdx: itemInfo.dataTypeArrIdx,
             symbolNameArrIdx: itemInfo.symbolNameArrIdx,
+            fullSymbolName: args.name,
+            useHandle: args.handle,
             id: args.id,
             oc: args.oc,
             ocd: args.ocd,
