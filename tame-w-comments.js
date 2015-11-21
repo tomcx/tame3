@@ -243,6 +243,10 @@ TAME.WebServiceClient = function (service) {
         service.servicePassword = null;
     }
     
+    //Global use of handles
+    if (service.useHandles === true) {
+        log('TAME library info: The "useHandles" parameter was set. Handles will be used for all requests.');
+    }
     
     
     //======================================================================================
@@ -411,7 +415,7 @@ TAME.WebServiceClient = function (service) {
                 log(req);
                 return;
             }
-        } else if (req.useHandle === true || instance.useHandles === true) {
+        } else if (req.useHandle === true || service.useHandles === true) {
             //Get the IndexGroup for the Value By Handle Request
             indexGroup = indexGroups.ValueByHandle;
         } else if (req.symbolName) {
@@ -477,7 +481,7 @@ TAME.WebServiceClient = function (service) {
                 log(req);
                 return;
             }
-        } else if (req.useHandle === true || instance.useHandles === true) {
+        } else if (req.useHandle === true || service.useHandles === true) {
             //Try to get the handle for this request
             if (instance.handleCacheReady === true) {
                 //Get handle code
@@ -553,6 +557,7 @@ TAME.WebServiceClient = function (service) {
         
         if (isNaN(indexOffset)) {
             log('TAME library error: IndexOffset is not a number, check address or name definition of the variable/request.');
+            log('IndexOffset: ' + indexOffset);
             log(req);
         }
 
@@ -579,6 +584,7 @@ TAME.WebServiceClient = function (service) {
         };
 
         //Get the symbol name.
+        itemInfo.fullSymbolName = item.name;
         if (arrPlcVarName[0] === '') {
             //Global variable
             itemInfo.symbolName = '.' + arrPlcVarName[1];
@@ -597,10 +603,19 @@ TAME.WebServiceClient = function (service) {
         
         //Leave the rest as an array and add it to the itemInfo
         itemInfo.dataTypeNames = arrPlcVarName.slice(2);
+        
+        log('item');
+        log(item);
+        log('itemInfo');
+        log(itemInfo);
        
         var arr = [], typeArray, dataType, i;
         
-        if (typeof item.type === 'string') {
+        
+        
+            
+        //Type defined by user
+        if (typeof item.type == 'string') {
             //Type is defined by user
             arr = item.type.split('.');
             itemInfo.type = arr[0];
@@ -610,9 +625,28 @@ TAME.WebServiceClient = function (service) {
             }
             itemInfo.format = arr[1];
             itemInfo.size = plcTypeLen[item.type];
-        }
+        
+        
+            if (itemInfo.type === 'STRING') {
+                itemInfo.stringLength = itemInfo.format;
+                itemInfo.size = itemInfo.format + 1; //Termination
+            } else if (itemInfo.type === 'ARRAY') {
+                
+                
+                
+            }
 
-        if (instance.symTableReady && instance.dataTypeTableReady && itemInfo.dataTypeNames.length > 0) {
+            if (typeof item.format === 'string') {
+                itemInfo.format = item.format;
+            } else if (typeof item.decPlaces  === 'number') {
+                itemInfo.format = item.decPlaces;
+            } else if (typeof item.dp  === 'number') {
+                itemInfo.format = item.dp;
+            }
+            
+            
+            
+        } else if (instance.symTableReady && instance.dataTypeTableReady && itemInfo.dataTypeNames.length > 0) {
             //Try to get the subitem type from the symbol table / data type table
             typeArray = itemInfo.dataTypeNames;
             dataType = symTable[itemInfo.symbolName].dataType;
@@ -724,7 +758,9 @@ TAME.WebServiceClient = function (service) {
                 log(item);
             }
 
-        } else {
+        } 
+        
+        if (typeof itemInfo.type != 'string') {
             log('TAME library error: Could not get the type of the item!');
             log(item);
         }
