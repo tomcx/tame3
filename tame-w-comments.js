@@ -1,5 +1,5 @@
 /*!
- * TAME [TwinCAT ADS Made Easy] V3.6 alpha
+ * TAME [TwinCAT ADS Made Easy] V3.6 beta
  * 
  * Copyright (c) 2009-2015 Thomas Schmidt; t.schmidt.p1 at freenet.de
  * 
@@ -16,6 +16,8 @@
  * This is the global TAME object. Used as a namespace to store values and functions.
  */
 var TAME = {
+    //Version
+    version:'3.6 beta',
     //Names of days and months. This is for the formatted output of date values. You can
     //simply add your own values if you need.
     weekdShortNames: {
@@ -72,6 +74,9 @@ TAME.WebServiceClient = function (service) {
     //======================================================================================
 
     var instance = this,
+    
+        //Version
+        version = 'TAME V3.6 beta',
 
         //Index-Group's
         indexGroups = {
@@ -185,12 +190,16 @@ TAME.WebServiceClient = function (service) {
         //Object to store the handles
         handleCache = {},
         handleNames = [];
+        
 
     
     
     //======================================================================================
     //                                Check Client Parameter
     //======================================================================================
+    
+    //Start
+    log('TAME library version: ' + TAME.version);
     
     //URL of the TcAdsWebService.dll
     if (typeof service.serviceUrl !== 'string') {
@@ -232,7 +241,7 @@ TAME.WebServiceClient = function (service) {
     
     //Global synchronous XMLHTTPRequests
     if (service.syncXmlHttp === true) {
-        log('TAME library info: The "syncXmlHttp" parameter was set. Synchronous XMLHttpRequests are used by default.');
+        log('TAME library info: The "syncXmlHttp" parameter was set. Synchronous XMLHttpRequests will be used by default.');
     }
     
     //Username/password
@@ -485,11 +494,10 @@ TAME.WebServiceClient = function (service) {
             //Try to get the handle for this request
             if (instance.handleCacheReady === true) {
                 //Get handle code
-                try {
-                    indexOffset = handleCache[req.fullSymbolName];
-                } catch (e) {
-                    log('TAME library error: Could not get the handle for this symbol name!');
-                    log(e);
+                indexOffset = handleCache[req.fullSymbolName];
+
+                if (isNaN(indexOffset)) {
+                    log('TAME library error: Could not get the handle for this symbol name: ' + req.fullSymbolName);
                     log(req);
                     return;
                 }
@@ -604,50 +612,11 @@ TAME.WebServiceClient = function (service) {
         //Leave the rest as an array and add it to the itemInfo
         itemInfo.dataTypeNames = arrPlcVarName.slice(2);
         
-        log('item');
-        log(item);
-        log('itemInfo');
-        log(itemInfo);
-       
         var arr = [], typeArray, dataType, i;
         
-        
-        
-            
-        //Type defined by user
-        if (typeof item.type == 'string') {
-            //Type is defined by user
-            arr = item.type.split('.');
-            itemInfo.type = arr[0];
-            if (arr.length > 2) {
-                //Join the formatting string if there were points in it.
-                arr[1] = arr.slice(1).join('.');
-            }
-            itemInfo.format = arr[1];
-            itemInfo.size = plcTypeLen[item.type];
-        
-        
-            if (itemInfo.type === 'STRING') {
-                itemInfo.stringLength = itemInfo.format;
-                itemInfo.size = itemInfo.format + 1; //Termination
-            } else if (itemInfo.type === 'ARRAY') {
-                
-                
-                
-            }
-
-            if (typeof item.format === 'string') {
-                itemInfo.format = item.format;
-            } else if (typeof item.decPlaces  === 'number') {
-                itemInfo.format = item.decPlaces;
-            } else if (typeof item.dp  === 'number') {
-                itemInfo.format = item.dp;
-            }
-            
-            
-            
-        } else if (instance.symTableReady && instance.dataTypeTableReady && itemInfo.dataTypeNames.length > 0) {
-            //Try to get the subitem type from the symbol table / data type table
+        //Get information from the tables
+        if (instance.symTableReady && instance.dataTypeTableReady && itemInfo.dataTypeNames.length > 0) {
+            //Try to get the subitem type from the symbol table && data type table
             typeArray = itemInfo.dataTypeNames;
             dataType = symTable[itemInfo.symbolName].dataType;
             itemInfo.dataTypeArrIdx = [];
@@ -758,13 +727,72 @@ TAME.WebServiceClient = function (service) {
                 log(item);
             }
 
+        }
+        
+        //Override type if defined by user
+        if (typeof item.type == 'string') {
+            //Type is defined by user
+            arr = item.type.split('.');
+            itemInfo.type = arr[0];
+            if (arr.length > 2) {
+                //Join the formatting string if there were points in it.
+                arr[1] = arr.slice(1).join('.');
+            }
+
+            if (itemInfo.type === 'STRING') {
+                arr[1] = parseInt(arr[1], 10);
+                if (isValidStringLen(arr[1])) {
+                    itemInfo.format = arr[1];
+                } else {
+                    itemInfo.format = plcTypeLen.STRING;
+                    log('TAME library warning: Length of string variable not defined: ' + item.name);
+                    log('TAME library warning: A length of 80 characters (TwinCAT default) will be used.');
+                }
+                itemInfo.stringLength = itemInfo.format;
+                itemInfo.size = itemInfo.format++; //Termination
+            } else if (itemInfo.type === 'ARRAY') {
+                /*
+                Maybe in a future version.
+                
+                itemInfo.arrayLength = dataTypeTable[dataType].subItems[typeArray[i]].arrayLength;
+                itemInfo.arrayDataType = dataTypeTable[dataType].subItems[typeArray[i]].arrayDataType;
+                itemInfo.dataType = dataTypeTable[dataType].subItems[typeArray[i]].dataType;
+                itemInfo.itemSize = dataTypeTable[dataType].subItems[typeArray[i]].itemSize;
+                */
+            } else if (itemInfo.type === 'USER') {
+                /*
+                Maybe in a future version.
+                */
+            } else {
+                itemInfo.format = arr[1];
+                itemInfo.size = plcTypeLen[itemInfo.type];
+            }
+
+            if (typeof item.format === 'string') {
+                itemInfo.format = item.format;
+            } else if (typeof item.decPlaces  === 'number') {
+                itemInfo.format = item.decPlaces;
+            } else if (typeof item.dp  === 'number') {
+                itemInfo.format = item.dp;
+            }
+            /*
+            log('item');
+            log(item);
+            log('itemInfo');
+            log(itemInfo);
+            */
         } 
         
         if (typeof itemInfo.type != 'string') {
             log('TAME library error: Could not get the type of the item!');
             log(item);
         }
-
+        
+        /*
+        log('itemInfo');
+        log(itemInfo);
+        */
+        
         return itemInfo;
         
     }
@@ -1035,7 +1063,7 @@ TAME.WebServiceClient = function (service) {
                 arr[1] = arr.slice(1).join('.');
             }
         } else {
-            log('TAME library error: Could not get the type of the item!');
+            log('TAME library error: Could not get the type of the item (function getTypeAndFormat())!');
             log(item);
         }
         return arr;
@@ -2597,7 +2625,9 @@ TAME.WebServiceClient = function (service) {
         var reqDescr = {},
             arrSymType,
             len, itemInfo;
-            
+        
+        args.type = type; //To prevent error messages in getItemInformation()
+        
         itemInfo = getItemInformation(args);
         len = plcTypeLen[type];
         
@@ -4658,7 +4688,14 @@ TAME.WebServiceClient = function (service) {
      * Get the names of the PLC variables using the upload info.
      */
     if (service.dontFetchSymbols === true) {
-        log('TAME library info: Reading of the UploadInfo and the TPY file deactivated. Symbol Table could not be created.');
+        log('TAME library warning: Reading of the UploadInfo and the TPY file deactivated. Symbol Table could not be created.');
+        
+        if (alignment !== 1 && alignment !== 4 && alignment !== 8) {
+            log('TAME library warning: The value for the alignment should be 1, 4 or 8.');
+        }
+        
+        log('TAME library info: Target information: NetId: ' + service.amsNetId + ', AMS port: ' + service.amsPort + ' , alignment: ' + alignment);
+        
     } else {
         if (typeof service.configFileUrl == 'string') {
             log('TAME library info: Fetching the TPY file from the webserver.');
