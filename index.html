@@ -19,7 +19,7 @@
 
         <header>
           <h1>TAME 3</h1>
-          <h2>The new version of the TAME library.</h2>
+          <h2>JS library for the access to a TwinCAT PLC.</h2>
         </header>
 
         <section id="downloads" class="clearfix">
@@ -31,21 +31,21 @@
         <hr>
 
         <section id="main_content">
-          <p><strong>Current version: V3.5</strong></p>
+          <p><strong>Important: This version is not supported anymore. You should switch to <a href="https://github.com/tomcx/tame4">TAME 4</a>.</strong></p>
 
 <h2>
-<a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction</h2>
+<a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Introduction</h2>
 
 <p>TAME is JavaScript library created for an easy and comfortable access to the TwinCAT ADS WebService. The name is an acronym for „TwinCAT ADS Made Easy“ and stands also for „taming“ the complexity of ADS and AJAX requests. Originally a „wast product“ from the programming of a browser based visualisation for my home, it has become a (in my opinion) useful little piece of software and I hope it will help others who want to develop their own visualisations.</p>
 
 <h2>
-<a id="usage" class="anchor" href="#usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Usage</h2>
+<a id="usage" class="anchor" href="#usage" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Usage</h2>
 
 <p>The library allows to exchange data with a TwinCAT PLC without any knowledge of ADS or AJAX. The browser connects to the webserver running on the PLC device and the ADS commands are wrapped in AJAX/SOAP requests. </p>
 
 <p>Link the library in your project like any other JavaScript file and create the client like this:</p>
 
-<div class="highlight highlight-source-js"><pre><span class="pl-k">var</span> Plc <span class="pl-k">=</span>  <span class="pl-c1">TAME</span>.WebServiceClient.createClient({
+<div class="highlight highlight-source-js"><pre><span class="pl-k">var</span> Plc <span class="pl-k">=</span>  <span class="pl-c1">TAME</span>.<span class="pl-smi">WebServiceClient</span>.<span class="pl-en">createClient</span>({
     serviceUrl<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>http://192.168.1.2/TcAdsWebService/TcAdsWebService.dll<span class="pl-pds">'</span></span>,
     amsNetId<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>192.168.1.2.1.1<span class="pl-pds">'</span></span>
 });</pre></div>
@@ -54,15 +54,15 @@
 
 <p>To write a boolean variable to the PLC you just have to write one line of code:</p>
 
-<div class="highlight highlight-source-js"><pre>Plc.writeBool({name<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">"</span>MAIN.MyBoolVar<span class="pl-pds">"</span></span>, val<span class="pl-k">:</span> <span class="pl-c1">true</span>});</pre></div>
+<div class="highlight highlight-source-js"><pre><span class="pl-smi">Plc</span>.<span class="pl-en">writeBool</span>({name<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">"</span>MAIN.MyBoolVar<span class="pl-pds">"</span></span>, val<span class="pl-k">:</span> <span class="pl-c1">true</span>});</pre></div>
 
 <p>Reading a PLC variable and storing the value in a (global) JavaScript variable is also quite easy:</p>
 
-<div class="highlight highlight-source-js"><pre>Plc.readBool({name<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">"</span>MAIN.MyBoolVar<span class="pl-pds">"</span></span>, jvar<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">"</span>myVar<span class="pl-pds">"</span></span>});</pre></div>
+<div class="highlight highlight-source-js"><pre><span class="pl-smi">Plc</span>.<span class="pl-en">readBool</span>({name<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">"</span>MAIN.MyBoolVar<span class="pl-pds">"</span></span>, jvar<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">"</span>myVar<span class="pl-pds">"</span></span>});</pre></div>
 
 <p>A more complex example of reading multiple variables with a function executed after the request has successfully finished:</p>
 
-<div class="highlight highlight-source-js"><pre>Plc.sumReadReq({
+<div class="highlight highlight-source-js"><pre><span class="pl-smi">Plc</span>.<span class="pl-en">sumReadReq</span>({
     items<span class="pl-k">:</span> [
         {
             name<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>MAIN.Ramp1<span class="pl-pds">'</span></span>,
@@ -108,19 +108,19 @@
 <p>Have a look at the manual for more information. TAME comes with various working examples including the PLC program, the best is to just try them out.</p>
 
 <h2>
-<a id="features" class="anchor" href="#features" aria-hidden="true"><span class="octicon octicon-link"></span></a>Features</h2>
+<a id="features" class="anchor" href="#features" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Features</h2>
 
 <p>There are methods for read and write access to single variables, variable blocks, arrays and structures in the TwinCAT PLC. New in TAME 3 are the sum commands. They allow to read and write multiple PLC variables without the need of fixed addresses. Variables can now be accessed by name, a major improvement to TAME 2.</p>
 
 <p>Supported data types are BOOL, BYTE, WORD, DWORD, USINT, SINT, UINT, INT, UDINT, DINT, TIME, TOD, DT, DATE, REAL, LREAL and STRING. There is also a special „type“ named INT1DP: It's an INT in the PLC, but in JavaScript the variable is of type float with 1 decimal place (i.e. a value of 568 in the PLC is 56.8 in JavaScript). The library provides built-in conversion of date and time values to formatted strings and REAL values can be rounded to a desired number of decimal places. For writing arrays and arrays of structures there is an option to choose only one array item to send to the PLC instead of the whole array. Another feature is the automatic structure padding for exchanging data with TwinCAT 2 and ARM-based devices (i.e. CX90xx) or with TwinCAT 3. TwinCAT 3 is supported with V3.4.</p>
 
 <h2>
-<a id="requirements" class="anchor" href="#requirements" aria-hidden="true"><span class="octicon octicon-link"></span></a>Requirements</h2>
+<a id="requirements" class="anchor" href="#requirements" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Requirements</h2>
 
 <p>Requried is a running ADS WebService, look at the <a href="http://infosys.beckhoff.com">Beckhoff Infosys</a> for more information about the installation. And a TwinCAT PLC of course. ;-)</p>
 
 <h2>
-<a id="license" class="anchor" href="#license" aria-hidden="true"><span class="octicon octicon-link"></span></a>License</h2>
+<a id="license" class="anchor" href="#license" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>License</h2>
 
 <p>TAME is dual licensed under the MIT and the GPLv3 license. </p>
 
